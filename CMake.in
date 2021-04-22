@@ -1,0 +1,5 @@
+# Setup Toplevel directory
+set(WAV_WDDR_TOP_LEVEL ${CMAKE_CURRENT_LIST_DIR})
+
+set(RTOS_HEAP_ALLOC_SCHEME "4")
+include(${WAV_WDDR_TOP_LEVEL}/rtos/CMake.in)
