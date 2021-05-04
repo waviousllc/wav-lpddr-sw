@@ -1,8 +1,10 @@
-set(DRIVER zqcal_driver)
+set(DRIVER pi_driver)
 
 set(
     SRC
     ${CMAKE_CURRENT_LIST_DIR}/driver.c
+    ${CMAKE_CURRENT_LIST_DIR}/rx_driver.c
+    ${CMAKE_CURRENT_LIST_DIR}/tx_driver.c
 )
 
 set(
