@@ -5,6 +5,7 @@
  */
 #include <pmon/driver.h>
 #include <wddr/memory_map.h>
+#include <kernel/io.h>
 
 /**
  * @breif   Process Monitor Get Status Count Commong Register Interface
@@ -76,7 +77,7 @@ void pmon_configure_reg_if(pmon_dev_t *pmon, uint16_t refcount, uint8_t init_wai
     reg_write(pmon->base + DDR_CMN_PMON_DIG_NOR_CFG__ADR, reg_val);
 
     reg_val = reg_read(pmon->base + DDR_CMN_PMON_DIG_CFG__ADR);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CMN_PMON_DIG_CFG_INITWAIT, initwait);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CMN_PMON_DIG_CFG_INITWAIT, init_wait);
     reg_write(pmon->base + DDR_CMN_PMON_DIG_CFG__ADR, reg_val);
 }
 
