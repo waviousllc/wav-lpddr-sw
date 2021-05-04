@@ -1,4 +1,4 @@
-set(DRIVER zqcal_driver)
+set(DRIVER vref_driver)
 
 set(
     SRC

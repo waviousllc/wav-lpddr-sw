@@ -18,11 +18,9 @@
  * @param[in]   lpde    pointer to LPDE Device.
  * @param[in]   state   the state that LPDE should move to.
  *
- * @return      returns whether state was set successfully.
- * @retval      WDDR_SUCCESS if state was set.
- * @retval      WDDR_ERROR otherwise.
+ * @return      void
  */
-wddr_return_t lpde_set_state_reg_if(lpde_dev_t *lpde, lpde_state_t state);
+void lpde_set_state_reg_if(lpde_dev_t *lpde, lpde_state_t state);
 
 /**
  * @brief   LPDE Set Delay Register Interface
@@ -57,10 +55,13 @@ void lpde_set_gear_reg_if(lpde_dev_t *lpde, uint8_t gear);
  * @param[in]   lpde    pointer to LPDE Device.
  * @param[in]   gear    the gear of LPDE to set.
  * @param[in]   delay   the delay of LPDE to set.
- * @param[in]   enable  flag indicating if LPDE Device should be enabled.
+ * @param[in]   state   the state that LPDE should move to.
  *
  * @return      void
  */
-void lpde_set_reg_if(lpde_dev_t *lpde, uint8_t gear, uint8_t delay, bool enable);
+void lpde_set_reg_if(lpde_dev_t *lpde,
+                     uint8_t gear,
+                     uint8_t delay,
+                     lpde_state_t state);
 
 #endif /* _LPDE_DRIVER_H_ */
