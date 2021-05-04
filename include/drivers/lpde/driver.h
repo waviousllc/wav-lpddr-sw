@@ -7,7 +7,6 @@
 #define _LPDE_DRIVER_H_
 
 #include <stdint.h>
-#include <stdbool.h>
 #include <lpde/device.h>
 
 /**
