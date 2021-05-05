@@ -100,7 +100,7 @@ typedef struct ca_path_t
 } ca_path_t;
 
 /**
- * @brief   CA Path Intalization
+ * @brief   CA Path Initalization
  *
  * @details Initializes all devices in the CA Path.
  *

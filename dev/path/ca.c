@@ -13,16 +13,16 @@
 #include <pi/driver.h>
 #include <pi/tx_driver.h>
 
-/** @brief  Intializes CA TX Path for the given rank */
+/** @brief  Initializes CA TX Path for the given rank */
 static void ca_tx_path_init_rank(ca_tx_path_t *ca_path, uint32_t base, wddr_rank_t rank);
 
-/** @brief  Intializes CA TX Path for rank independent devices */
+/** @brief  Initializes CA TX Path for rank independent devices */
 static void ca_tx_path_init(ca_tx_path_t *ca_path, uint32_t base);
 
-/** @brief  Intializes CA RX Path for the given rank */
+/** @brief  Initializes CA RX Path for the given rank */
 static void ca_rx_path_init_rank(ca_rx_path_t *ca_path, uint32_t base, wddr_rank_t rank);
 
-/** @brief  Intializes CA RX Path for rank independent devices */
+/** @brief  Initializes CA RX Path for rank independent devices */
 static void ca_rx_path_init(ca_rx_path_t *ca_path, uint32_t base);
 
 /** @brief  Sets state of all devices in the CA Path */
