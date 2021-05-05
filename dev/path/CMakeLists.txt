@@ -2,6 +2,7 @@ set(LIB_NAME path)
 set(
     SRC
     ${CMAKE_CURRENT_LIST_DIR}/common.c
+    ${CMAKE_CURRENT_LIST_DIR}/ca.c
 )
 
 set(
@@ -27,4 +28,11 @@ target_link_libraries(
     zqcal
     ibias
     pmon
+    pi
+    gearbox
+    lpde
+    receiver
+    sensamp
+    pipeline
+    driver
 )
