@@ -3,6 +3,7 @@ set(
     SRC
     ${CMAKE_CURRENT_LIST_DIR}/common.c
     ${CMAKE_CURRENT_LIST_DIR}/ca.c
+    ${CMAKE_CURRENT_LIST_DIR}/dq.c
 )
 
 set(
