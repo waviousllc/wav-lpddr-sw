@@ -1,0 +1,28 @@
+#! /bin/sh
+# Configures build environment for appropriate target architecture
+
+# Definitions
+BUILD_DIR="build"
+
+# Common build prep function
+init_build_common() {
+  mkdir -p ${BUILD_DIR}
+}
+
+init_lpddr() {
+  cd ${BUILD_DIR}
+  cmake .. -DCMAKE_TOOLCHAIN_FILE="../rtos/toolchain/riscv32.toolchain" \
+           -DCONFIG_SRC_ARCH="riscv" \
+           -DCONFIG_TARGET_ARCH="riscv32" \
+           -DCONFIG_TARGET_BOARD="wavious-mcu" \
+           -DCMAKE_BUILD_TYPE=""
+  cd ..
+}
+
+print_help() {
+echo "Usage: configure [OPTIONS]\n"
+echo "This program configures CMAKE for wavious lpddr project\n"
+}
+
+init_build_common
+init_lpddr
