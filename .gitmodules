@@ -1,0 +1,3 @@
+[submodule "rtos"]
+	path = rtos
+	url = git@github.com:waviousllc/wav-rtos-sw.git
