@@ -84,7 +84,7 @@ static void dfi_command_fill_packet_group(command_t *command,
  */
 static wddr_return_t dfi_tx_packet_buffer_insert_packet(dfi_tx_packet_buffer_t *buffer,
                                                         uint16_t timestamp,
-                                                        list_head_t *head);
+                                                        List_t *head);
 
 
 void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer,
@@ -93,9 +93,10 @@ void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer,
 {
     memset(buffer, 0, sizeof(dfi_tx_packet_buffer_t));
     memset(packets, 0, sizeof(packet_item_t) * num_packets);
-    init_list_head(&buffer->list);
+    vListInitialise(&buffer->list);
     buffer->packets = packets;
     buffer->num_packets = num_packets;
+    buffer->ts_last_packet = 1;
 }
 
 void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
@@ -244,44 +245,26 @@ static void dfi_command_fill_packet_group(command_t *command,
 
 static wddr_return_t dfi_tx_packet_buffer_insert_packet(dfi_tx_packet_buffer_t *buffer,
                                                         uint16_t timestamp,
-                                                        list_head_t *head)
+                                                        List_t *head)
 {
-    packet_item_t *current_packet, *next_packet;
+    packet_item_t *current_packet;
     // Search through packet list for command and find where to insert
     // Have to find at least one because of the end packet that's added
-    list_for_each_entry(next_packet, head, list)
+    if (!vListIsItemValueContainedWithin(head, timestamp))
     {
-        if (next_packet->packet.packet.time == timestamp)
+        current_packet = dfi_tx_packet_buffer_pop_packet(buffer);
+        if (current_packet == NULL)
         {
-            return WDDR_SUCCESS;
+            return WDDR_ERROR;
         }
 
-        if (next_packet->packet.packet.time > timestamp)
-        {
-            current_packet = dfi_tx_packet_buffer_pop_packet(buffer);
-            if (current_packet == NULL)
-            {
-                return WDDR_ERROR;
-            }
-
-            current_packet->packet.packet.time = timestamp;
-
-            // Insert in the middle
-            __list_add(&current_packet->list, next_packet->list.prev, &next_packet->list);
-            return WDDR_SUCCESS;
-        }
+        vListInitialiseItem(&current_packet->list_item);
+        current_packet->packet.packet.time = timestamp;
+        listSET_LIST_ITEM_VALUE(&current_packet->list_item, timestamp);
+        listSET_LIST_ITEM_OWNER(&current_packet->list_item, current_packet);
+        vListInsert(head, &current_packet->list_item);
     }
 
-    // If hit here add to the end
-    current_packet = dfi_tx_packet_buffer_pop_packet(buffer);
-    if (current_packet == NULL)
-    {
-        return WDDR_ERROR;
-    }
-    current_packet->packet.packet.time = timestamp;
-
-    // Insert at the end
-    list_add_tail(&current_packet->list, head);
     return WDDR_SUCCESS;
 }
 
@@ -297,27 +280,21 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
                                        uint16_t ts_offset)
 {
     uint16_t group_offset, group_packet_length, num_packets;
-    uint16_t start_time = 1;
+    uint16_t start_time;
     uint16_t *group_lengths;
     uint8_t *group_num_phases;
-    packet_item_t *current_packet;
-    LIST_HEAD(command_list);
+    packet_item_t *current_packet, *last_packet;
+    List_t command_list;
+    ListItem_t *item;
     uint8_t ratio = cfg->ratio;
+
+    vListInitialise(&command_list);
 
     // Based on DRAM Cycles
     group_lengths = cfg->group_lengths[command->command_type];
     group_num_phases = cfg->group_num_phases;
 
-    if (!list_empty(&buffer->list))
-    {
-        // Insert last packet into this group as start
-        current_packet = list_last_entry(&buffer->list, packet_item_t, list);
-        start_time = current_packet->packet.packet.time + ts_offset - 1;
-        current_packet->packet.packet.time = start_time;
-        // Move to command list
-        list_del(&current_packet->list);
-        list_add(&current_packet->list, &command_list);
-    }
+    start_time = listLIST_IS_EMPTY(&buffer->list) ? buffer->ts_last_packet : buffer->ts_last_packet + ts_offset;
 
     /*******************************************************************
      **                         PART 1
@@ -416,8 +393,9 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
         }
 
         // Fill in packets based on if they're valid at packet timestamp for this group
-        list_for_each_entry(current_packet, &command_list, list)
+        listFOR_EACH_LIST_ITEM(item, &command_list)
         {
+            current_packet = (packet_item_t *) listGET_LIST_ITEM_OWNER(item);
             // Within time window that group should write
             if (group_start <= current_packet->packet.packet.time && current_packet->packet.packet.time < group_end_time)
             {
@@ -432,8 +410,13 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
         }
     }
 
+    // Get last valid packet end timestamp and remove extra packet
+    last_packet = (packet_item_t *) listGET_LIST_ITEM_OWNER(listGET_PREV(listGET_END_MARKER(&command_list)));
+    buffer->ts_last_packet = last_packet->packet.packet.time - 1;
+    uxListRemove(&last_packet->list_item);
+
     // Add to existing packet list
-    list_splice_tail(&command_list, &buffer->list);
+    vListSplice(&buffer->list, &command_list);
     return WDDR_SUCCESS;
 }
 

@@ -73,7 +73,7 @@ static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
 {
     wddr_return_t ret = WDDR_SUCCESS;
     packet_item_t *packet_item;
-    list_head_t *next = packet_buffer->list.next;
+    ListItem_t *next = listGET_HEAD_ENTRY(&packet_buffer->list);
 
     /**
      * Send all packets except the last packet.
@@ -81,10 +81,10 @@ static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
      */
     do
     {
-        packet_item = list_entry(next, packet_item_t, list);
-        next = next->next;
+        packet_item = (packet_item_t *) listGET_LIST_ITEM_OWNER(next);
+        next = listGET_NEXT(next);
         ret = dfi_buffer_write_ig_fifo_reg_if(dfi_buffer, packet_item->packet.raw_data);
-    } while (next->next != &packet_buffer->list && ret == WDDR_SUCCESS);
+    } while (next != listGET_END_MARKER(&packet_buffer->list) && ret == WDDR_SUCCESS);
     return ret;
 }
 

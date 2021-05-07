@@ -442,7 +442,7 @@ typedef union dfi_rx_packet_t
  */
 typedef struct packet_item_t
 {
-    list_head_t list;
+    ListItem_t  list_item;
     dfi_tx_packet_t packet;
 } packet_item_t;
 
@@ -454,6 +454,7 @@ typedef struct packet_item_t
  *
  * num_packets      number of packets allocated in packet storage.
  * packet_index     index of next packet allocation.
+ * ts_last_packet   timestamp of last packet stored in buffer.
  * list             linked list of packets. (This is the "buffer").
  * packets          pointer to storage where packets have been allocated.
  */
@@ -461,7 +462,8 @@ typedef struct dfi_tx_packet_buffer_t
 {
     uint8_t         num_packets;
     uint8_t         packet_index;
-    list_head_t     list;
+    uint16_t        ts_last_packet;
+    List_t          list;
     packet_item_t   *packets;
 } dfi_tx_packet_buffer_t;
 
