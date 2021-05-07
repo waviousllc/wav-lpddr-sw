@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <error.h>
 #include <dfi/packet.h>
+#include <kernel/completion.h>
 
 #define DFI_FIFO_DEPTH          (64)
 #define DFI_IG_FIFO_LOAD_NUM    (sizeof(dfi_tx_packet_t) / sizeof(uint32_t))
@@ -33,11 +34,12 @@ typedef enum dfi_fifo_state_t
  *
  * @details Device representing send and receive sides of DFI Buffer (FIFO).
  *
- * base             base address of the DFI Buffer Device.
- * tx_packet_buffer internal tx packet buffer that can be used to send Commands
- *                  to the DRAM.
- * tx_packets       storage of DFI TX Packets used with TX packet buffer member.
- * rx_packet_buffer rx packet buffer for storing received DFI packets.
+ * base                 base address of the DFI Buffer Device.
+ * tx_packet_buffer     internal tx packet buffer that can be used to send Commands
+ *                      to the DRAM.
+ * tx_packets           storage of DFI TX Packets used with TX packet buffer member.
+ * rx_packet_buffer     rx packet buffer for storing received DFI packets.
+ * ig_empty_completion  completion variable for synchronization of ig_empty event.
  */
 typedef struct dfi_buffer_dev_t
 {
@@ -45,6 +47,7 @@ typedef struct dfi_buffer_dev_t
     dfi_tx_packet_buffer_t  tx_packet_buffer;
     packet_item_t           tx_packets[PACKET_BUFFER_DEPTH];
     dfi_rx_packet_buffer_t  rx_packet_buffer;
+    Completion_t            ig_empty_completion;
 } dfi_buffer_dev_t;
 
 /**

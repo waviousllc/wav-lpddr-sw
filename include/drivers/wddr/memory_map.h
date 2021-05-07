@@ -6,6 +6,7 @@
 #ifndef _WDDR_MEMORY_MAP_H_
 #define _WDDR_MEMORY_MAP_H_
 
+#include <board/board.h>
 #include "ddr_ca_csr.h"
 #include "ddr_cmn_csr.h"
 #include "ddr_ctrl_csr.h"
@@ -14,6 +15,12 @@
 #include "ddr_dq_csr.h"
 #include "ddr_mvp_pll_csr.h"
 #include "ddr_fsw_csr.h"
+
+// Common MCU registers (same for all Wavious MCUs)
+#define WDDR_MEMORY_MAP_MCU_INTF        (MEMORY_MAP_WAV_MCU_INTF)
+#define WDDR_MEMORY_MAP_MCU             (MEMORY_MAP_WAV_MCU)
+#define WDDR_MEMORY_MAP_MCU_ITCM        (MEMORY_MAP_WAV_MCU_ITCM)
+#define WDDR_MEMORY_MAP_MCU_DTCM        (MEMORY_MAP_WAV_MCU_DTCM)
 
 // DDR PHY Specific
 // Mask used for MSR Switching (PHY offsets only)

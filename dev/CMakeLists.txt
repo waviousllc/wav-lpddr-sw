@@ -1,3 +1,5 @@
+add_subdirectory(dfi)
+add_subdirectory(dram)
 add_subdirectory(driver)
 add_subdirectory(ibias)
 add_subdirectory(path)

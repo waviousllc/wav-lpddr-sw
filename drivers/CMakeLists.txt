@@ -1,3 +1,4 @@
+add_subdirectory(dfi)
 add_subdirectory(driver)
 add_subdirectory(gearbox)
 add_subdirectory(ibias)
