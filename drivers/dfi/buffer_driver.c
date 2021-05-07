@@ -5,7 +5,10 @@
  */
 #include <dfi/buffer_driver.h>
 #include <wddr/memory_map.h>
+#include <wddr/irq_map.h>
 #include <kernel/io.h>
+#include <kernel/irq.h>
+#include <kernel/completion.h>
 
 /**
  * @brief   DFI Buffer Push Packet Into FIFO Register Interface
@@ -32,10 +35,28 @@ static void dfi_buffer_push_packet_into_fifo_reg_if(dfi_buffer_dev_t *dfi_buffer
  */
 static wddr_return_t dfi_buffer_pop_packet_from_fifo_reg_if(dfi_buffer_dev_t *dfi_buffer);
 
+/**
+ * @brief   DFI Ingress Buffer IRQ Handler
+ *
+ * @details Handles coordination of tasks related to DFI Ingress Buffer IRQ.
+ *
+ * @param[in]   irq_num     number cooresponding to current irq being handled.
+ * @param[in]   args        pointer to IRQ handler arguments.
+ *
+ * @return      void.
+ */
+static void dfi_buffer_handle_ig_irq(int irq_num, void *args);
+
 void dfi_buffer_init_reg_if(dfi_buffer_dev_t *buffer, uint32_t base)
 {
     buffer->base = base;
-    // TODO: Completion variable setup / initialization
+    vInitCompletion(&buffer->ig_empty_completion);
+
+    // Register interrupt functions for hw buffers
+    request_irq(MCU_FAST_IRQ_IBUF, dfi_buffer_handle_ig_irq, buffer);
+    uint32_t mask = reg_read(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR);
+    mask |= FAST_IRQ_STICKY_MASK(DDR_IRQ_CH0_IBUF_EMPTY);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR, mask);
 }
 
 void dfi_buffer_enable_clock_reg_if(dfi_buffer_dev_t *dfi_buffer)
@@ -77,15 +98,16 @@ void dfi_buffer_send_packets_reg_if(dfi_buffer_dev_t *dfi_buffer)
 {
     uint32_t reg_val;
 
+    // Clear completion flag
+    vReInitCompletion(&dfi_buffer->ig_empty_completion);
+
     // Send packets
     dfi_buffer_set_mode_reg_if(dfi_buffer, true);
 
-    // Wait for IG FIFO to empty (all packets sent)
-    // TODO: Replace with completion variable instead.
-    do
-    {
-        reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_STA__ADR);
-    } while (GET_REG_FIELD(reg_val, DDR_DFICH_TOP_STA_IG_STATE) != DFI_FIFO_STATE_EMPTY);
+    // Enable interrupt and wait for Buffer to empty
+    enable_irq(MCU_FAST_IRQ_IBUF);
+    vWaitForCompletion(&dfi_buffer->ig_empty_completion);
+    disable_irq(MCU_FAST_IRQ_IBUF);
 
     // Disable Timestamp comparison logic
     reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR);
@@ -170,4 +192,25 @@ static wddr_return_t dfi_buffer_pop_packet_from_fifo_reg_if(dfi_buffer_dev_t *df
     reg_write(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
 
     return WDDR_SUCCESS;
+}
+
+static void dfi_buffer_handle_ig_irq(int irq_num, void *args)
+{
+    uint32_t reg_val;
+    dfi_buffer_dev_t *dfi_buffer = (dfi_buffer_dev_t *) args;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    // Clear Interrupt
+    /** NOTE: Only CH0 is enabled */
+    reg_val = FAST_IRQ_STICKY_MASK(DDR_IRQ_CH0_IBUF_EMPTY) |
+              FAST_IRQ_STICKY_MASK(DDR_IRQ_CH0_IBUF_FULL);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, reg_val);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, 0x0);
+
+    reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_STA__ADR);
+    if (GET_REG_FIELD(reg_val, DDR_DFICH_TOP_STA_IG_STATE) == DFI_FIFO_STATE_EMPTY)
+    {
+        vCompleteFromISR(&dfi_buffer->ig_empty_completion, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
 }
