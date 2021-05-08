@@ -41,7 +41,7 @@ typedef enum wddr_irq_t
 // Fast IRQ Defintions (15 bus interrupts connected to MCU)
 typedef enum mcu_fast_irq_t
 {
-    MCU_FAST_IRQ_HOST2PHY_REQ,
+    MCU_FAST_IRQ_HOST2PHY_REQ = 16,
     MCU_FAST_IRQ_PHY2HOST_ACK,
     MCU_FAST_IRQ_IBUF,
     MCU_FAST_IRQ_EBUF,
