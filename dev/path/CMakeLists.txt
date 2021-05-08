@@ -29,9 +29,9 @@ target_link_libraries(
     zqcal
     ibias
     pmon
-    pi
-    gearbox
-    lpde
+    pi_driver
+    gearbox_driver
+    lpde_driver
     receiver
     sensamp
     pipeline
