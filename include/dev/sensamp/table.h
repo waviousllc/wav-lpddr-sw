@@ -10,6 +10,23 @@
 #include <wddr/phy_config.h>
 
 /**
+ * @brief   Sense Amp (Sensamp) Index Enumerations
+ *
+ * @details Enumeration to indicate valid Sensamp indices.
+ *
+ * @note    0 and 180 are indices used for DDR mode.
+ * @note    90 and 270 are additional indices used for QDR mode.
+ *
+ */
+typedef enum sensamp_index_t
+{
+    SA_0_INDEX = 0,
+    SA_180_INDEX = 1,
+    SA_90_INDEX = 2,
+    SA_270_INDEX = 3
+} sensamp_index_t;
+
+/**
  * @brief   Sense Amp (Sensamp) DQBit Calibration Structure
  *
  * code     calibration code for a Sensamp bit.
