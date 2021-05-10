@@ -15,13 +15,14 @@ add_executable(
     ${SOURCE_FILES}
 )
 
-target_include_directories(
+target_compile_options(
     ${PROJECT_NAME}
     PRIVATE
-    ${APP_DIR}
-    ${WAV_RTOS_TOP_LEVEL}/bsp/${CONFIG_TARGET_BOARD}/freertos
+    -Wno-missing-field-initializers
 )
-target_link_libraries(${PROJECT_NAME}
+
+target_link_libraries(
+    ${PROJECT_NAME}
     "-Wl,--start-group"
     c
     gcc
