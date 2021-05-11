@@ -31,6 +31,7 @@ target_link_libraries(${PROJECT_NAME}
     freertos
     pll_fsm
     path
+    fs_fsm
     "-Wl,--end-group"
 )
 
