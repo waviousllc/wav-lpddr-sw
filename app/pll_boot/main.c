@@ -19,9 +19,10 @@
 
 /* LPDDR includes. */
 #include <pll/device.h>
-#include <pll/fsm.h>
 #include <path/common.h>
 #include <wddr/memory_map.h>
+#include <pll/fsm.h>
+#include <freq_switch/fsm.h>
 
 /*******************************************************************************
 **                                   MACROS
@@ -33,7 +34,7 @@
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
-static void pll_state_change_callback(fsm_t *fsm, uint8_t state, void *args);
+static void fs_state_change_callback(fsm_t *fsm, uint8_t state, void *args);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -42,6 +43,7 @@ static Completion_t lock_event;
 static pll_dev_t pll;
 static pll_fsm_t pll_fsm;
 static common_path_t common_path;
+static fs_fsm_t fs_fsm;
 
 // 422 MHz Configuration
 static pll_freq_cal_t pll_cal = {
@@ -69,6 +71,7 @@ static pll_freq_cfg_t pll_cfg = {
         .post_div = 1,
     },
 };
+
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -97,40 +100,50 @@ int main( void )
 
 static void vMainTask( void *pvParameters )
 {
-    pll_prep_data_t prep_data = {
-        .freq_id = PHY_BOOT_FREQ,
-        .cal = &pll_cal,
-        .cfg = &pll_cfg,
+    fs_prep_data_t fs_prep_data = {
+        .msr = WDDR_MSR_0,
+        .prep_data = {
+            .freq_id = PHY_BOOT_FREQ,
+            .cal = &pll_cal,
+            .cfg = &pll_cfg,
+        },
     };
 
     // Calibrate VCOs
     pll_calibrate_vco(&pll, &pll_cal, &pll_cfg);
 
-    // Initialize FSM
+    // Initialize PLL FSM
     pll_fsm_init(&pll_fsm, &pll);
-    fsm_register_state_change_callback(&pll_fsm, pll_state_change_callback, NULL);
+
+    // Initialize Frequency Switch FSM
+    freq_switch_fsm_init(&fs_fsm, &pll_fsm);
+    fsm_register_state_change_callback(&fs_fsm.fsm, fs_state_change_callback, NULL);
 
     // Initialize
     vInitCompletion(&lock_event);
 
-    // Prepare PLL
-    pll_fsm_prep_event(&pll_fsm, &prep_data);
+    // Prep VCO for frequency switch to PHY boot freq
+    freq_switch_event_prep(&fs_fsm, &fs_prep_data);
 
-    // Switch PLL to PHY Frequency
-    pll_fsm_switch_event(&pll_fsm);
-
-    // Wait for PLL to lock
+    // Ensure FSM is in WAIT_FOR_SWITCH state before performing switch
     vWaitForCompletion(&lock_event);
-    configASSERT(pll_fsm.current_state == PLL_STATE_LOCKED);
+    configASSERT(fs_fsm.current_state == FS_STATE_WAIT_FOR_SWITCH);
+
+    // Perform frequency switch
+    freq_switch_event_sw_switch(&fs_fsm);
+
+    // Wait for switch to complete
+    vWaitForCompletion(&lock_event);
+    configASSERT(fs_fsm.current_state == FS_STATE_IDLE);
 
     // End test
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x1);
 }
 
 /*-----------------------------------------------------------*/
-static void pll_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
+static void fs_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
 {
-    if (state == PLL_STATE_LOCKED)
+    if (state == FS_STATE_IDLE || state == FS_STATE_WAIT_FOR_SWITCH)
     {
         vComplete(&lock_event);
     }
