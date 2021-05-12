@@ -29,7 +29,7 @@ target_link_libraries(${PROJECT_NAME}
     metal
     kernel
     freertos
-    pll
+    pll_fsm
     path
     "-Wl,--end-group"
 )

@@ -16,4 +16,5 @@ include(${CMAKE_CURRENT_LIST_DIR}/rtos/CMakeLists.txt)
 
 add_subdirectory(drivers)
 add_subdirectory(dev)
+add_subdirectory(fsm)
 add_subdirectory(app)

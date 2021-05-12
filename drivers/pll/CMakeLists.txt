@@ -3,7 +3,6 @@ set(DRIVER pll_driver)
 set(
     SRC
     ${CMAKE_CURRENT_LIST_DIR}/driver.c
-    ${CMAKE_CURRENT_LIST_DIR}/fsm.c
 )
 
 set(
