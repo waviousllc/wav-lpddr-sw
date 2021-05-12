@@ -15,9 +15,11 @@
 /* Kernel includes. */
 #include <kernel/io.h>
 #include <kernel/irq.h>
+#include <kernel/completion.h>
 
 /* LPDDR includes. */
 #include <pll/device.h>
+#include <pll/fsm.h>
 #include <path/common.h>
 #include <wddr/memory_map.h>
 
@@ -31,11 +33,14 @@
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
+static void pll_state_change_callback(fsm_t *fsm, uint8_t state, void *args);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
+static Completion_t lock_event;
 static pll_dev_t pll;
+static pll_fsm_t pll_fsm;
 static common_path_t common_path;
 
 // 422 MHz Configuration
@@ -92,20 +97,43 @@ int main( void )
 
 static void vMainTask( void *pvParameters )
 {
+    pll_prep_data_t prep_data = {
+        .freq_id = PHY_BOOT_FREQ,
+        .cal = &pll_cal,
+        .cfg = &pll_cfg,
+    };
+
     // Calibrate VCOs
     pll_calibrate_vco(&pll, &pll_cal, &pll_cfg);
 
-    // Prepare for Initial PHY Frequency
-    pll_prepare_vco_switch(&pll, PHY_BOOT_FREQ, &pll_cal, &pll_cfg);
+    // Initialize FSM
+    pll_fsm_init(&pll_fsm, &pll);
+    fsm_register_state_change_callback(&pll_fsm, pll_state_change_callback, NULL);
 
-    // Switch via SW to PHY Frequency
-    pll_switch_vco(&pll, true);
+    // Initialize
+    vInitCompletion(&lock_event);
 
-    // Disable previous VCO
-    pll_disable_vco(&pll);
+    // Prepare PLL
+    pll_fsm_prep_event(&pll_fsm, &prep_data);
+
+    // Switch PLL to PHY Frequency
+    pll_fsm_switch_event(&pll_fsm);
+
+    // Wait for PLL to lock
+    vWaitForCompletion(&lock_event);
+    configASSERT(pll_fsm.current_state == PLL_STATE_LOCKED);
 
     // End test
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x1);
+}
+
+/*-----------------------------------------------------------*/
+static void pll_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
+{
+    if (state == PLL_STATE_LOCKED)
+    {
+        vComplete(&lock_event);
+    }
 }
 
 /*-----------------------------------------------------------*/
@@ -113,7 +141,6 @@ static void prvSetupHardware( void )
 {
     uint32_t reg_val, clken_reg;
 
-    // Initialize
     common_path_init(&common_path, WDDR_MEMORY_MAP_CMN);
     pll_init(&pll, WDDR_MEMORY_MAP_PLL);
 
