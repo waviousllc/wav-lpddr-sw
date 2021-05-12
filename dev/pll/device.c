@@ -3,12 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stddef.h>
 #include <pll/device.h>
 #include <pll/driver.h>
 #include <vco/driver.h>
-#include <pll/fsm.h>
-
-#define UNDEFINED_FREQ_ID   (255)
 
 // MCU VCO values
 #define MCU_BAND                    (0x3)
@@ -36,7 +34,6 @@ void pll_init(pll_dev_t *pll, uint32_t base)
     pll->p_vco_next = NULL;
     pll->p_vco_prev = NULL;
     pll_init_reg_if(pll, base);
-    pll_fsm_init(&pll->fsm, pll);
 }
 
 void pll_boot(pll_dev_t *pll)

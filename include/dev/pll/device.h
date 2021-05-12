@@ -7,13 +7,13 @@
 #define _PLL_DEV_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <error.h>
 #include <vco/device.h>
 #include <pll/table.h>
-#include <kernel/fsm.h>
 
-/** @brief  PLL FSM Structure */
-typedef fsm_t pll_fsm_t;
+#define UNDEFINED_FREQ_ID   (255)
+#define UNDEFINED_VCO_ID    (255)
 
 /**
  * @brief   PLL Device Structure
@@ -26,7 +26,6 @@ typedef fsm_t pll_fsm_t;
  *          PHY frequency.
  *
  * base             base address of the PLL device.
- * fsm              PLL Finite State Machine (tracks PLL state).
  * vco              Array of available VCO devices.
  * p_vco_current    pointer to current VCO device driving PLL.
  * p_vco_next       pointer to the next VCO device. Usually NULL unless prepared
@@ -37,7 +36,6 @@ typedef fsm_t pll_fsm_t;
 typedef struct pll_dev_t
 {
     uint32_t    base;
-    pll_fsm_t   fsm;
     vco_dev_t   vco[VCO_INDEX_NUM];
     vco_dev_t   *p_vco_current;
     vco_dev_t   *p_vco_next;
