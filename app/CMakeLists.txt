@@ -1,1 +1,1 @@
-add_subdirectory(pll_boot)
+add_subdirectory(wddr_boot)

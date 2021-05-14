@@ -25,31 +25,26 @@ static void egress_dig_set_mode_msr1_reg_if(bit_egress_dev_t *egress_dig,
 
 static void egress_dig_set_base_reg_if(bit_egress_dev_t *egress_dig,
                                        wddr_slice_type_t slice_type,
-                                       wddr_rank_t rank,
                                        uint8_t bit_index)
 {
-    uint32_t base, bit_offset, rank_offset;
+    uint32_t base, bit_offset;
 
     switch (slice_type)
     {
         case WDDR_SLICE_TYPE_DQ:
             base = EGRESS_DQ_BIT_BASE__ADDR;
-            rank_offset = EGRESS_DIG_DQ_RANK__OFFSET;
             bit_offset = EGRESS_DIG_DQ_BIT__OFFSET;
             break;
         case WDDR_SLICE_TYPE_DQS:
             base = EGRESS_DQS_BIT_BASE__ADDR;
-            rank_offset = EGRESS_DIG_DQS_RANK__OFFSET;
             bit_offset = EGRESS_DIG_DQS_BIT__OFFSET;
             break;
         case WDDR_SLICE_TYPE_CA:
             base = EGRESS_CA_BIT_BASE__ADDR;
-            rank_offset = EGRESS_DIG_CA_RANK__OFFSET;
             bit_offset = EGRESS_DIG_CA_BIT__OFFSET;
             break;
         case WDDR_SLICE_TYPE_CK:
             base = EGRESS_CK_BIT_BASE__ADDR;
-            rank_offset = EGRESS_DIG_CK_RANK__OFFSET;
             bit_offset = EGRESS_DIG_CK_BIT__OFFSET;
             break;
         default:
@@ -57,7 +52,7 @@ static void egress_dig_set_base_reg_if(bit_egress_dev_t *egress_dig,
     }
 
     egress_dig->base = (egress_dig->base & ~WDDR_MEMORY_MAP_REL_MASK) +
-                  base + bit_index * bit_offset + rank * rank_offset;
+                  base + bit_index * bit_offset;
 }
 
 void egress_dig_set_msr_reg_if(bit_egress_dev_t *egress_dig,
@@ -69,12 +64,11 @@ void egress_dig_set_msr_reg_if(bit_egress_dev_t *egress_dig,
 void egress_dig_init_reg_if(bit_egress_dev_t *egress_dig,
                             uint32_t base,
                             wddr_slice_type_t slice_type,
-                            wddr_rank_t rank,
                             uint8_t bit)
 {
     egress_dig->base = base;
     egress_dig_set_msr_reg_if(egress_dig, WDDR_MSR_0);
-    egress_dig_set_base_reg_if(egress_dig, slice_type, rank, bit);
+    egress_dig_set_base_reg_if(egress_dig, slice_type, bit);
 }
 
 static void egress_dig_set_mode_msr0_reg_if(bit_egress_dev_t *egress_dig,

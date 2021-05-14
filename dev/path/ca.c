@@ -9,7 +9,7 @@
 #include <lpde/driver.h>
 #include <lpde/rx_driver.h>
 #include <lpde/tx_driver.h>
-#include <pipeline/rt_driver.h>
+#include <pipeline/driver.h>
 #include <pi/driver.h>
 #include <pi/tx_driver.h>
 
@@ -55,19 +55,19 @@ static void ca_tx_path_init_rank(ca_tx_path_t *ca_path, uint32_t base, wddr_rank
     for (bit_index = 0; bit_index < WDDR_PHY_CA_SLICE_NUM; bit_index++)
     {
         pipeline_bit_init(&ca_path->rank[rank].ca.pipeline[bit_index], base, WDDR_SLICE_TYPE_CA, rank, bit_index);
-        tx_lpde_init(&ca_path->rank[rank].ca.lpde[bit_index], base, WDDR_SLICE_TYPE_CA, rank, bit_index);
+        tx_lpde_init_reg_if(&ca_path->rank[rank].ca.lpde[bit_index], base, WDDR_SLICE_TYPE_CA, rank, bit_index);
     }
     rt_pipeline_init_reg_if(&ca_path->rank[rank].ca.rt, base, WDDR_SLICE_TYPE_CA, rank);
-    tx_pi_init(&ca_path->rank[rank].ca.pi, base, WDDR_SLICE_TYPE_CA, rank);
+    tx_pi_init_reg_if(&ca_path->rank[rank].ca.pi, base, WDDR_SLICE_TYPE_CA, rank);
 
     // CK
     for (bit_index = 0; bit_index < WDDR_PHY_CK_SLICE_NUM; bit_index++)
     {
         pipeline_bit_init(&ca_path->rank[rank].ck.pipeline[bit_index], base, WDDR_SLICE_TYPE_CK, rank, bit_index);
-        tx_lpde_init(&ca_path->rank[rank].ck.lpde[bit_index], base, WDDR_SLICE_TYPE_CK, rank, bit_index);
+        tx_lpde_init_reg_if(&ca_path->rank[rank].ck.lpde[bit_index], base, WDDR_SLICE_TYPE_CK, rank, bit_index);
     }
     rt_pipeline_init_reg_if(&ca_path->rank[rank].ck.rt, base, WDDR_SLICE_TYPE_CK, rank);
-    tx_pi_init(&ca_path->rank[rank].ck.pi, base, WDDR_SLICE_TYPE_CK, rank);
+    tx_pi_init_reg_if(&ca_path->rank[rank].ck.pi, base, WDDR_SLICE_TYPE_CK, rank);
 
     // CMN
     driver_cmn_init(&ca_path->rank[rank].ck.driver, base, WDDR_SLICE_TYPE_CK, rank);
@@ -75,15 +75,42 @@ static void ca_tx_path_init_rank(ca_tx_path_t *ca_path, uint32_t base, wddr_rank
 
 static void ca_tx_path_init(ca_tx_path_t *ca_path, uint32_t base)
 {
+    // CA
+    for (uint8_t bit_index = 0; bit_index < WDDR_PHY_CA_SLICE_NUM; bit_index++)
+    {
+        egress_dig_init_reg_if(&ca_path->ca.pipeline[bit_index].egress_dig,
+                              base,
+                              WDDR_SLICE_TYPE_CA,
+                              bit_index);
+        egress_ana_init_reg_if(&ca_path->ca.pipeline[bit_index].egress_ana,
+                              base,
+                              WDDR_SLICE_TYPE_CA,
+                              bit_index);
+    }
+
     // Bit TX Driver
     driver_init(&ca_path->ca.driver, base, WDDR_SLICE_TYPE_CA);
+
+    // CK
+    for (uint8_t bit_index = 0; bit_index < WDDR_PHY_CK_SLICE_NUM; bit_index++)
+    {
+        egress_dig_init_reg_if(&ca_path->ck.pipeline[bit_index].egress_dig,
+                              base,
+                              WDDR_SLICE_TYPE_CK,
+                              bit_index);
+        egress_ana_init_reg_if(&ca_path->ck.pipeline[bit_index].egress_ana,
+                               base,
+                               WDDR_SLICE_TYPE_CK,
+                               bit_index);
+    }
+
     driver_init(&ca_path->ck.driver, base, WDDR_SLICE_TYPE_CK);
     tx_gb_init_reg_if(&ca_path->gearbox, base, WDDR_SLICE_TYPE_CK);
 }
 
 static void ca_rx_path_init_rank(ca_rx_path_t *ca_path, uint32_t base, wddr_rank_t rank)
 {
-    rx_lpde_init(&ca_path->rank[rank].ck.sdr_lpde, base, WDDR_SLICE_TYPE_CK, rank);
+    rx_lpde_init_reg_if(&ca_path->rank[rank].ck.sdr_lpde, base, WDDR_SLICE_TYPE_CK, rank);
 }
 
 static void ca_rx_path_init(ca_rx_path_t *ca_path, uint32_t base)

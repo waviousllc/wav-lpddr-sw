@@ -19,19 +19,15 @@
 //Mode, rank, bit offsets
 // DQ
 #define EGRESS_DIG_DQ_BIT__OFFSET       (DDR_DQ_DQ_TX_EGRESS_DIG_M0_CFG_1__ADR  - DDR_DQ_DQ_TX_EGRESS_DIG_M0_CFG_0__ADR)
-#define EGRESS_DIG_DQ_RANK__OFFSET      (0)
 #define EGRESS_DIG_DQ_MODE__OFFSET      (DDR_DQ_DQ_TX_EGRESS_DIG_M1_CFG_0__ADR  - DDR_DQ_DQ_TX_EGRESS_DIG_M0_CFG_0__ADR)
 // DQS
 #define EGRESS_DIG_DQS_BIT__OFFSET      (DDR_DQ_DQS_TX_EGRESS_DIG_M0_CFG_1__ADR - DDR_DQ_DQS_TX_EGRESS_DIG_M0_CFG_0__ADR)
-#define EGRESS_DIG_DQS_RANK__OFFSET     (0)
 #define EGRESS_DIG_DQS_MODE__OFFSET     (DDR_DQ_DQS_TX_EGRESS_DIG_M1_CFG_0__ADR - DDR_DQ_DQS_TX_EGRESS_DIG_M0_CFG_0__ADR)
 // CA
 #define EGRESS_DIG_CA_BIT__OFFSET       (DDR_CA_DQ_TX_EGRESS_DIG_M0_CFG_1__ADR  - DDR_CA_DQ_TX_EGRESS_DIG_M0_CFG_0__ADR)
-#define EGRESS_DIG_CA_RANK__OFFSET      (0)
 #define EGRESS_DIG_CA_MODE__OFFSET      (DDR_CA_DQ_TX_EGRESS_DIG_M1_CFG_0__ADR  - DDR_CA_DQ_TX_EGRESS_DIG_M0_CFG_0__ADR)
 // CK
 #define EGRESS_DIG_CK_BIT__OFFSET       (0)
-#define EGRESS_DIG_CK_RANK__OFFSET      (0)
 #define EGRESS_DIG_CK_MODE__OFFSET      (DDR_CA_DQS_TX_EGRESS_DIG_M1_CFG_0__ADR - DDR_CA_DQS_TX_EGRESS_DIG_M0_CFG_0__ADR)
 
 /**
@@ -42,7 +38,6 @@
  * @param[in]   egress_dig      pointer to Egress Digital device.
  * @param[in]   base            base address of the Egress Digital device.
  * @param[in]   slice_type      type of slice of the Egress Digital device.
- * @param[in]   rank            rank of the Egress Digital device.
  * @param[in]   bit             bit index of the Egress Digital device.
  *
  * @return      void
@@ -50,7 +45,6 @@
 void egress_dig_init_reg_if(bit_egress_dev_t *egress_dig,
                             uint32_t base,
                             wddr_slice_type_t slice_type,
-                            wddr_rank_t rank,
                             uint8_t bit);
 
 /**

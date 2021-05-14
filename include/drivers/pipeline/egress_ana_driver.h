@@ -42,7 +42,6 @@
  * @param[in]   egress_ana      pointer to Egress Analog device.
  * @param[in]   base            base address of the Egress Analog device.
  * @param[in]   slice_type      type of slice of the Egress Analog device.
- * @param[in]   rank            rank of the Egress Analog device.
  * @param[in]   bit             bit index of the Egress Analog device.
  *
  * @return      void
@@ -50,7 +49,6 @@
 void egress_ana_init_reg_if(bit_egress_dev_t *egress_ana,
                             uint32_t base,
                             wddr_slice_type_t slice_type,
-                            wddr_rank_t rank,
                             uint8_t bit);
 
 /**

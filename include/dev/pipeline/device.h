@@ -52,16 +52,12 @@ typedef struct bit_egress_dev_t
  * qdr          QDR pipeline device.
  * ddr          DDR pipeline device.
  * sdr          SDR pipeline device.
- * egress_dig   Digital egress device.
- * egress_ana   Analog egress device.
  */
 typedef struct pipeline_bit_dev_t
 {
     qdr_pipeline_dev_t              qdr;
     ddr_pipeline_dev_t              ddr;
     sdr_pipeline_dev_t              sdr;
-    bit_egress_dev_t                egress_dig;
-    bit_egress_dev_t                egress_ana;
 } pipeline_bit_dev_t;
 
 /**
