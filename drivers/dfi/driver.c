@@ -127,3 +127,26 @@ void dfi_ovr_traffic_cfg_reg_if(dfi_dev_t *dfi, dfi_ovr_traffic_cfg_t *cfg)
 {
     reg_write(dfi->base + DDR_DFICH_CTRL1_M0_CFG__ADR + dfi->msr * DFI_MODE__OFFSET, cfg->val);
 }
+
+void dfi_set_init_complete_ovr_reg_if(bool enable)
+{
+    uint32_t reg_val;
+
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_STATUS_IF_CFG_SW_ACK_OVR, enable);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR, reg_val);
+}
+
+void dfi_set_init_start_ovr_reg_if(bool enable)
+{
+    uint32_t reg_val;
+
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_STATUS_IF_CFG_SW_REQ_OVR, enable);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR, reg_val);
+}
+
+void dfi_get_init_start_status_reg_if(uint32_t *init_start)
+{
+    *init_start = GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_STA__ADR), DDR_DFI_STATUS_IF_STA_REQ);
+}

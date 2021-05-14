@@ -11,6 +11,8 @@
 #include <wddr/irq_map.h>
 #include <pll/fsm.h>
 #include <freq_switch/fsm.h>
+#include <dfi/driver.h>
+#include <fsw/driver.h>
 
 // Timer is 1ms minimum, add 1 extra tick to ensure > 1ms
 #define WD_TIMER_PERIOD ( pdMS_TO_TICKS( 1 ) + 1 )
@@ -75,6 +77,9 @@ void freq_switch_fsm_init(fs_fsm_t *fsm, pll_fsm_t *pll_fsm)
     fsm->init_complete_cb = NULL;
     fsm->init_complete_cb_args = NULL;
 
+    // Default to SW Switch Only FSM Functionality
+    fsm->hw_switch_only = false;
+
     // Connect Watchdog timer callback
     fsm->timer = xTimerCreate("FsFsmWd",
                               WD_TIMER_PERIOD,
@@ -114,13 +119,46 @@ wddr_return_t freq_switch_event_prep(fs_fsm_t *fsm, fs_prep_data_t *prep_data)
 wddr_return_t freq_switch_event_sw_switch(fs_fsm_t *fsm)
 {
     // Check if prep guard conditions are satisfied
-    if (!freq_switch_sw_switch_guard(&fsm->fsm, NULL))
+    if (!freq_switch_sw_switch_guard(&fsm->fsm, fsm))
     {
        return WDDR_ERROR;
     }
 
     // Call into FSM
     fsm_handle_external_event(&fsm->fsm, FS_STATE_SWITCH, fsm);
+    return WDDR_SUCCESS;
+}
+
+wddr_return_t freq_switch_event_hw_switch_mode(fs_fsm_t *fsm)
+{
+    uint32_t init_start;
+    uint8_t curr_vco_id;
+    uint8_t curr_msr;
+    pll_fsm_t *pll_fsm = (pll_fsm_t *) fsm->fsm.instance;
+
+    // Verify hardware is set to VCO1 and MSR0, if not return ERROR.
+    pll_fsm_get_current_vco_id(pll_fsm, &curr_vco_id);
+    curr_msr = GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_STA__ADR), DDR_FSW_CTRL_STA_CMN_MSR);
+    if (curr_msr != WDDR_MSR_0 || curr_vco_id != VCO_INDEX_PHY_1)
+    {
+        return WDDR_ERROR;
+    }
+
+    // Set override values to MSR0 and VCO1
+    fsw_ctrl_set_msr_vco_ovr_val_reg_if(WDDR_MSR_0, VCO_INDEX_PHY_1);
+    // Disable overrides to allow hardware to switch MSR and VCO.
+    fsw_ctrl_set_msr_vco_ovr_reg_if(false);
+
+    // Release init_complete override indicating dfi interface is ready.
+    dfi_set_init_complete_ovr_reg_if(false);
+    // init_start must be low before proceeding, wait for this to happen.
+    do
+    {
+        dfi_get_init_start_status_reg_if(&init_start);
+    } while (init_start != 0x0);
+    // Ensure init_start override is disabled.
+    dfi_set_init_start_ovr_reg_if(false);
+    fsm->hw_switch_only = true;
     return WDDR_SUCCESS;
 }
 
@@ -141,9 +179,11 @@ static bool freq_switch_prep_guard(fsm_t *fsm, __UNUSED__ void *data)
             fsm->current_state == FS_STATE_WAIT_FOR_SWITCH);
 }
 
-static bool freq_switch_sw_switch_guard(fsm_t *fsm, __UNUSED__ void *data)
+static bool freq_switch_sw_switch_guard(fsm_t *fsm, void *data)
 {
-    return (fsm->current_state == FS_STATE_WAIT_FOR_SWITCH);
+    fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
+    return (fsm->current_state == FS_STATE_WAIT_FOR_SWITCH &&
+            !fs_fsm->hw_switch_only);
 }
 
 static void freq_switch_state_fail(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
@@ -168,7 +208,6 @@ static void freq_switch_state_wait_for_switch(fsm_t *fsm, void *data)
 
 static void freq_switch_state_switch(fsm_t *fsm, void *data)
 {
-    uint32_t reg_val;
     uint8_t msr;
     uint8_t next_vco_id;
     fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
@@ -192,15 +231,8 @@ static void freq_switch_state_switch(fsm_t *fsm, void *data)
     }
 
     // Override MSR / PLL VCO
-    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_MSR_OVR_VAL, msr);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_VCO_SEL_OVR_VAL, next_vco_id);
-    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
-
-    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_VCO_SEL_OVR, 0x1);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_MSR_OVR, 0x1);
-    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+    fsw_ctrl_set_msr_vco_ovr_val_reg_if(msr, next_vco_id);
+    fsw_ctrl_set_msr_vco_ovr_reg_if(true);
 
     // Switch PLL to PHY Frequency
     pll_fsm_switch_event(pll_fsm);
@@ -227,7 +259,7 @@ static void freq_switch_state_prep_switch(fsm_t *fsm, void *data)
     pll_fsm_prep_event(pll_fsm, &fs_prep_data->prep_data);
 }
 
-static void freq_switch_state_post_switch(fsm_t *fsm, void *data)
+static void freq_switch_state_post_switch(fsm_t *fsm, __UNUSED__ void *data)
 {
     uint32_t reg_val;
 
