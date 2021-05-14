@@ -24,5 +24,7 @@ target_include_directories(
 target_link_libraries(
     ${LIB_NAME}
     kernel
+    dfi_driver
+    fsw_driver
     pll_fsm
 )
