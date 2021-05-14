@@ -91,7 +91,7 @@ void dfi_buffer_disable(dfi_buffer_dev_t *dfi_buffer);
  * @details Fills in IG FIFO with given TX Packet Buffer.
  *
  * @param[in]   dfi_buffer  pointer to DFI Buffer device.
- * @param[in]   tx_buffer   pointer to TX packet buffer with packets to fill.
+ * @param[in]   packet_list pointer to list of packets to write.
  *
  * @return      returns whether all packets were written to IG FIFO.
  * @retval      WDDR_SUCCESS if all packets successfully written.
@@ -99,7 +99,7 @@ void dfi_buffer_disable(dfi_buffer_dev_t *dfi_buffer);
  *              packets have been written.
  */
 wddr_return_t dfi_buffer_fill_packets(dfi_buffer_dev_t *dfi_buffer,
-                                      dfi_tx_packet_buffer_t *tx_buffer);
+                                      List_t *packet_list);
 
 /**
  * @brief   DFI Buffer Send Packets
@@ -118,7 +118,7 @@ void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer);
  * @details Fills IG FIFO with packets and then immediately sends them.
  *
  * @param[in]   dfi_buffer  pointer to DFI Buffer device.
- * @param[in]   tx_buffer   pointer to TX packet buffer with packets to fill.
+ * @param[in]   packet_list pointer to list of packets to write.
  *
  * @return      returns whether all packets were written to IG FIFO.
  * @retval      WDDR_SUCCESS if all packets successfully written.
@@ -126,7 +126,7 @@ void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer);
  *              packets have been written.
  */
 wddr_return_t dfi_buffer_fill_and_send_packets(dfi_buffer_dev_t *dfi_buffer,
-                                               dfi_tx_packet_buffer_t *tx_buffer);
+                                               List_t *packet_list);
 
 /**
  * @brief   DFI Buffer Read Packets

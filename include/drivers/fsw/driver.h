@@ -43,4 +43,13 @@ void fsw_ctrl_set_msr_vco_ovr_reg_if(bool enable);
  */
 void fsw_csp_set_clk_disable_ovr_val_reg_if(bool enable);
 
+/**
+ * @brief   HW Frequency Switch (FSW) CSP Sync Register Interface
+ *
+ * @details Performs CSP Sync procedure via CSR.
+ *
+ * @return  void
+ */
+void fsw_csp_sync_reg_if(void);
+
 #endif /* _FSW_DRIVER_H_ */

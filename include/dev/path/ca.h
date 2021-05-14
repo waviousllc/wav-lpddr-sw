@@ -40,18 +40,22 @@ typedef struct ca_rx_path_t
  *
  * @details Structure representing all devices in the CA transmit path.
  *
- * rank.ca.pipeline     CA Pipeline bit.
- * rank.ca.lpde         LPDE for each CA bit.
- * rank.ca.rt           CA Retimer Pipeline (common to all bits).
- * rank.ca.pi           CA Transmit PI device (common to all bits).
- * rank.ck.pipeline     DQS Pipeline bit.
- * rank.ck.lpde         LPDE for each DQS bit.
- * rank.ck.rt           DQS Retimer Pipeline (common to all bits).
- * rank.ck.pi           DQS Transmit PI device (common to all bits).
- * rank.ck.driver       Driver Common device for DQS.
- * ca.driver            Driver device for all CA bits.
- * ck.driver            Driver device for all CK bits.
- * gearbox              TX Gearbox device.
+ * rank.ca.pipeline         CA Pipeline bit.
+ * rank.ca.lpde             LPDE for each CA bit.
+ * rank.ca.rt               CA Retimer Pipeline (common to all bits).
+ * rank.ca.pi               CA Transmit PI device (common to all bits).
+ * rank.ck.pipeline         DQS Pipeline bit.
+ * rank.ck.lpde             LPDE for each DQS bit.
+ * rank.ck.rt               DQS Retimer Pipeline (common to all bits).
+ * rank.ck.pi               DQS Transmit PI device (common to all bits).
+ * rank.ck.driver           Driver Common device for DQS.
+ * ca.driver                Driver device for all CA bits.
+ * ca.pipeline.egress_dig   Ditigal Egress device for each bit in CA pipeline.
+ * ca.pipeline.egress_ana   Analog Egress device for each bit in CA pipeline.
+ * ck.driver                Driver device for all CK bits.
+ * ck.pipeline.egress_dig   Ditigal Egress device for each bit in CK pipeline.
+ * ck.pipeline.egress_ana   Analog Egress device for each bit in CK pipeline.
+ * gearbox                  TX Gearbox device.
  */
 typedef struct ca_tx_path_t
 {
@@ -76,11 +80,21 @@ typedef struct ca_tx_path_t
     struct
     {
         driver_dev_t            driver;
+        struct
+        {
+            bit_egress_dev_t    egress_dig;
+            bit_egress_dev_t    egress_ana;
+        } pipeline[WDDR_PHY_CA_SLICE_NUM];
     } ca;
 
     struct
     {
         driver_dev_t            driver;
+        struct
+        {
+            bit_egress_dev_t    egress_dig;
+            bit_egress_dev_t    egress_ana;
+        } pipeline[WDDR_PHY_CK_SLICE_NUM];
     } ck;
     tx_gearbox_dev_t            gearbox;
 } ca_tx_path_t;

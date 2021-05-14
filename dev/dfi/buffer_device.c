@@ -13,7 +13,7 @@
  * @details Writes all pakets in given TX Packet Buffer to the IG FIFO.
  *
  * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   packet_buffer   pointer to TX Packet Buffer with packets to write.
+ * @param[in]   packet_list     pointer to list of packets to write.
  *
  * @return      returns whether all packets were written to IG FIFO.
  * @retval      WDDR_SUCCESS if all packets successfully written.
@@ -21,7 +21,7 @@
  *              packets have been written.
  */
 static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
-                                              dfi_tx_packet_buffer_t *packet_buffer);
+                                              List_t *packet_list);
 
 void dfi_buffer_init(dfi_buffer_dev_t *dfi_buffer, uint32_t base)
 {
@@ -47,10 +47,10 @@ void dfi_buffer_disable(dfi_buffer_dev_t *dfi_buffer)
 }
 
 wddr_return_t dfi_buffer_fill_packets(dfi_buffer_dev_t *dfi_buffer,
-                                      dfi_tx_packet_buffer_t *tx_buffer)
+                                      List_t *packet_list)
 {
     dfi_buffer_enable(dfi_buffer);
-    PROPAGATE_ERROR(dfi_buffer_write_packets(dfi_buffer, tx_buffer));
+    PROPAGATE_ERROR(dfi_buffer_write_packets(dfi_buffer, packet_list));
     return WDDR_SUCCESS;
 }
 
@@ -60,20 +60,20 @@ void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer)
 }
 
 wddr_return_t dfi_buffer_fill_and_send_packets(dfi_buffer_dev_t *dfi_buffer,
-                                               dfi_tx_packet_buffer_t *tx_buffer)
+                                               List_t *packet_list)
 {
-    PROPAGATE_ERROR(dfi_buffer_fill_packets(dfi_buffer, tx_buffer));
+    PROPAGATE_ERROR(dfi_buffer_fill_packets(dfi_buffer, packet_list));
     dfi_buffer_send_packets(dfi_buffer);
     return WDDR_SUCCESS;
 }
 
 
 static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
-                                              dfi_tx_packet_buffer_t *packet_buffer)
+                                              List_t *packet_list)
 {
     wddr_return_t ret = WDDR_SUCCESS;
     packet_item_t *packet_item;
-    ListItem_t *next = listGET_HEAD_ENTRY(&packet_buffer->list);
+    ListItem_t *next = listGET_HEAD_ENTRY(packet_list);
 
     /**
      * Send all packets except the last packet.
@@ -84,7 +84,7 @@ static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
         packet_item = (packet_item_t *) listGET_LIST_ITEM_OWNER(next);
         next = listGET_NEXT(next);
         ret = dfi_buffer_write_ig_fifo_reg_if(dfi_buffer, packet_item->packet.raw_data);
-    } while (next != listGET_END_MARKER(&packet_buffer->list) && ret == WDDR_SUCCESS);
+    } while (next != listGET_END_MARKER(packet_list) && ret == WDDR_SUCCESS);
     return ret;
 }
 

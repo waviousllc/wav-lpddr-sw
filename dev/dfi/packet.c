@@ -6,7 +6,9 @@
 #include <dfi/packet.h>
 #include <string.h>
 
-#define DFI_PACK_CKE_VAL    ((WDDR_PHY_RANK << 1) - 1)
+#define DFI_PACK_CKE_VAL        ((WDDR_PHY_RANK << 1) - 1)
+#define GET_LAST_ITEM(LIST)     (listGET_PREV((MiniListItem_t *) listGET_END_MARKER(LIST)))
+#define GET_LAST_PACKET(LIST)   ((packet_item_t *) listGET_LIST_ITEM_OWNER(GET_LAST_ITEM(LIST)))
 
 static dfi_command_cfg_t dfi_command_mission_cfg =
 {
@@ -411,7 +413,7 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
     }
 
     // Get last valid packet end timestamp and remove extra packet
-    last_packet = (packet_item_t *) listGET_LIST_ITEM_OWNER(listGET_PREV(listGET_END_MARKER(&command_list)));
+    last_packet = GET_LAST_PACKET(&command_list);
     buffer->ts_last_packet = last_packet->packet.packet.time - 1;
     uxListRemove(&last_packet->list_item);
 
