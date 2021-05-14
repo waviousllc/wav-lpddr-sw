@@ -6,7 +6,7 @@
 #include <path/dq.h>
 #include <gearbox/tx_driver.h>
 #include <gearbox/rx_driver.h>
-#include <pipeline/rt_driver.h>
+#include <pipeline/driver.h>
 #include <pi/driver.h>
 #include <pi/tx_driver.h>
 #include <pi/rx_driver.h>
@@ -56,10 +56,10 @@ static void dq_tx_path_init_rank(dq_tx_path_t *dq_path, uint32_t base, wddr_rank
     for (bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
     {
         pipeline_bit_init(&dq_path->rank[rank].dq.pipeline[bit_index], base, WDDR_SLICE_TYPE_DQ, rank, bit_index);
-        tx_lpde_init(&dq_path->rank[rank].dq.lpde[bit_index], base, WDDR_SLICE_TYPE_DQ, rank, bit_index);
+        tx_lpde_init_reg_if(&dq_path->rank[rank].dq.lpde[bit_index], base, WDDR_SLICE_TYPE_DQ, rank, bit_index);
     }
     rt_pipeline_init_reg_if(&dq_path->rank[rank].dq.rt, base, WDDR_SLICE_TYPE_DQ, rank);
-    tx_pi_init(&dq_path->rank[rank].dq.pi, base, WDDR_SLICE_TYPE_DQ, rank);
+    tx_pi_init_reg_if(&dq_path->rank[rank].dq.pi, base, WDDR_SLICE_TYPE_DQ, rank);
 
     // DQS
     for (bit_index = 0; bit_index < WDDR_PHY_DQS_SLICE_NUM; bit_index++)
@@ -67,27 +67,53 @@ static void dq_tx_path_init_rank(dq_tx_path_t *dq_path, uint32_t base, wddr_rank
         pipeline_bit_init(&dq_path->rank[rank].dqs.pipeline[bit_index], base, WDDR_SLICE_TYPE_DQS, rank, bit_index);
         if (bit_index < WDDR_PHY_DQS_TXRX_SLICE_NUM)
         {
-            tx_lpde_init(&dq_path->rank[rank].dqs.lpde[bit_index], base, WDDR_SLICE_TYPE_DQS, rank, bit_index);
+            tx_lpde_init_reg_if(&dq_path->rank[rank].dqs.lpde[bit_index], base, WDDR_SLICE_TYPE_DQS, rank, bit_index);
         }
     }
 
     rt_pipeline_init_reg_if(&dq_path->rank[rank].dqs.rt, base, WDDR_SLICE_TYPE_DQS, rank);
-    tx_pi_init(&dq_path->rank[rank].dqs.pi, base, WDDR_SLICE_TYPE_DQS, rank);
+    tx_pi_init_reg_if(&dq_path->rank[rank].dqs.pi, base, WDDR_SLICE_TYPE_DQS, rank);
     driver_cmn_init(&dq_path->rank[rank].dqs.driver, base, WDDR_SLICE_TYPE_DQS, rank);
 }
 
 static void dq_tx_path_init(dq_tx_path_t *dq_path, uint32_t base)
 {
+    // DQ
+    for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
+    {
+        egress_dig_init_reg_if(&dq_path->dq.pipeline[bit_index].egress_dig,
+                               base,
+                               WDDR_SLICE_TYPE_DQ,
+                               bit_index);
+        egress_ana_init_reg_if(&dq_path->dq.pipeline[bit_index].egress_ana,
+                               base,
+                               WDDR_SLICE_TYPE_DQ,
+                               bit_index);
+    }
     // Bit TX Driver
     driver_init(&dq_path->dq.driver, base, WDDR_SLICE_TYPE_DQ);
+
+    // DQS
+    for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQS_SLICE_NUM; bit_index++)
+    {
+        egress_dig_init_reg_if(&dq_path->dqs.pipeline[bit_index].egress_dig,
+                               base,
+                               WDDR_SLICE_TYPE_DQS,
+                               bit_index);
+        egress_ana_init_reg_if(&dq_path->dqs.pipeline[bit_index].egress_ana,
+                               base,
+                               WDDR_SLICE_TYPE_DQS,
+                               bit_index);
+    }
+
     driver_init(&dq_path->dqs.driver, base, WDDR_SLICE_TYPE_DQS);
     tx_gb_init_reg_if(&dq_path->gearbox, base, WDDR_SLICE_TYPE_DQS);
 }
 
 static void dq_rx_path_init_rank(dq_rx_path_t *dq_path, uint32_t base, wddr_rank_t rank)
 {
-    rx_pi_init(&dq_path->rank[rank].dqs.pi, base, WDDR_SLICE_TYPE_DQS, rank);
-    rx_lpde_init(&dq_path->rank[rank].dqs.sdr_lpde, base, WDDR_SLICE_TYPE_DQS, rank);
+    rx_pi_init_reg_if(&dq_path->rank[rank].dqs.pi, base, WDDR_SLICE_TYPE_DQS, rank);
+    rx_lpde_init_reg_if(&dq_path->rank[rank].dqs.sdr_lpde, base, WDDR_SLICE_TYPE_DQS, rank);
     receiver_init(&dq_path->rank[rank].dqs.receiver, base, rank);
 }
 
@@ -101,7 +127,7 @@ static void dq_path_set_state(dq_path_t *dq_path, bool enable)
 {
     uint8_t rank_index, bit_index;
     pi_state_t pi_state = enable ? PI_STATE_ENABLED : PI_STATE_DISABLED;
-    lpde_state_t lpde_state = enable ? LPDE_STATE_ENABLED : LPDE_STATE_ENABLED;
+    lpde_state_t lpde_state = enable ? LPDE_STATE_ENABLED : LPDE_STATE_DISABLED;
 
     for (rank_index = 0; rank_index < WDDR_PHY_RANK; rank_index++)
     {

@@ -49,18 +49,22 @@ typedef struct dq_rx_path_t
  *
  * @details Structure representing all devices in the DQ transmit path.
  *
- * rank.dq.pipeline     DQ Pipeline bit.
- * rank.dq.lpde         LPDE for each DQ bit.
- * rank.dq.rt           DQ Retimer Pipeline (common to all bits).
- * rank.dq.pi           DQ Transmit PI device (common to all bits).
- * rank.dqs.pipeline    DQS Pipeline bit.
- * rank.dqs.lpde        LPDE for each DQS bit.
- * rank.dqs.rt          DQS Retimer Pipeline (common to all bits).
- * rank.dqs.pi          DQS Transmit PI device (common to all bits).
- * rank.dqs.driver      Driver Common device for DQS.
- * dq.driver            Driver device for all DQ bits.
- * dqs.driver           Driver device for all DQS bits.
- * gearbox              TX Gearbox device.
+ * rank.dq.pipeline         DQ Pipeline bit.
+ * rank.dq.lpde             LPDE for each DQ bit.
+ * rank.dq.rt               DQ Retimer Pipeline (common to all bits).
+ * rank.dq.pi               DQ Transmit PI device (common to all bits).
+ * rank.dqs.pipeline        DQS Pipeline bit.
+ * rank.dqs.lpde            LPDE for each DQS bit.
+ * rank.dqs.rt              DQS Retimer Pipeline (common to all bits).
+ * rank.dqs.pi              DQS Transmit PI device (common to all bits).
+ * rank.dqs.driver          Driver Common device for DQS.
+ * dq.driver                Driver device for all DQ bits.
+ * dq.pipeline.egress_dig   Ditigal Egress device for each bit in DQ pipeline.
+ * dq.pipeline.egress_ana   Analog Egress device for each bit in DQ pipeline.
+ * dqs.driver               Driver device for all DQS bits.
+ * dqs.pipeline.egress_dig  Ditigal Egress device for each bit in DQS pipeline.
+ * dqs.pipeline.egress_ana  Analog Egress device for each bit in DQS pipeline.
+ * gearbox                  TX Gearbox device.
  */
 typedef struct dq_tx_path_t
 {
@@ -85,11 +89,21 @@ typedef struct dq_tx_path_t
     struct
     {
         driver_dev_t            driver;
+        struct
+        {
+            bit_egress_dev_t    egress_dig;
+            bit_egress_dev_t    egress_ana;
+        } pipeline[WDDR_PHY_DQ_SLICE_NUM];
     } dq;
 
     struct
     {
         driver_dev_t            driver;
+        struct
+        {
+            bit_egress_dev_t    egress_dig;
+            bit_egress_dev_t    egress_ana;
+        } pipeline[WDDR_PHY_DQS_SLICE_NUM];
     } dqs;
     tx_gearbox_dev_t            gearbox;
 } dq_tx_path_t;

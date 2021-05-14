@@ -1,5 +1,5 @@
 set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
-project("pll_boot" C ASM)
+project("wddr_boot" C ASM)
 
 # Directories
 set(LINKER_SCRIPT   "${WAV_RTOS_TOP_LEVEL}/bsp/${CONFIG_TARGET_BOARD}/metal.freertos.lds")
@@ -30,10 +30,7 @@ target_link_libraries(
     metal
     kernel
     freertos
-    pll_fsm
-    path
-    fs_fsm
-    fsw_driver
+    wddr
     clk_driver
     "-Wl,--end-group"
 )

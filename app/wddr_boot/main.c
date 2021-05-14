@@ -14,8 +14,6 @@
 
 /* Kernel includes. */
 #include <kernel/io.h>
-#include <kernel/irq.h>
-#include <kernel/completion.h>
 
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
@@ -26,19 +24,17 @@
 /*******************************************************************************
 **                                   MACROS
 *******************************************************************************/
-#define PHY_BOOT_FREQ   (0)
+#define WDDR_BASE_ADDR  (0x00000000)
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
-static void fs_state_change_callback(fsm_t *fsm, uint8_t state, void *args);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-static Completion_t lock_event;
 static DECLARE_WDDR_TABLE(table);
 /** @note Place in .data section at cost of image size */
 static wddr_dev_t wddr __attribute__ ((section (".data"))) = {0};
@@ -71,65 +67,13 @@ int main( void )
 
 static void vMainTask( void *pvParameters )
 {
-    fs_prep_data_t fs_prep_data = {
-        .msr = WDDR_MSR_0,
-        .prep_data = {
-            .freq_id = PHY_BOOT_FREQ,
-            .cal = &table.cal.freq[PHY_BOOT_FREQ].pll,
-            .cfg = &table.cfg.freq[PHY_BOOT_FREQ].pll,
-        },
-    };
-
-    // Calibrate VCOs
-    pll_calibrate_vco(&wddr.pll,
-                      &table.cal.freq[PHY_BOOT_FREQ].pll,
-                      &table.cfg.freq[PHY_BOOT_FREQ].pll);
-
-    // Initialize PLL FSM
-    pll_fsm_init(&wddr.fsm.pll, &wddr.pll);
-
-    // Initialize Frequency Switch FSM
-    freq_switch_fsm_init(&wddr.fsm.fsw, &wddr.fsm.pll);
-    fsm_register_state_change_callback(&wddr.fsm.fsw.fsm, fs_state_change_callback, NULL);
-
-    // Initialize
-    vInitCompletion(&lock_event);
-
-    // Prep VCO for frequency switch to PHY boot freq
-    freq_switch_event_prep(&wddr.fsm.fsw, &fs_prep_data);
-
-    // Ensure FSM is in WAIT_FOR_SWITCH state before performing switch
-    vWaitForCompletion(&lock_event);
-    configASSERT(wddr.fsm.fsw.fsm.current_state == FS_STATE_WAIT_FOR_SWITCH);
-
-    // Perform frequency switch
-    freq_switch_event_sw_switch(&wddr.fsm.fsw);
-
-    // Wait for switch to complete
-    vWaitForCompletion(&lock_event);
-    configASSERT(wddr.fsm.fsw.fsm.current_state == FS_STATE_IDLE);
-
-    // End test
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x1);
-}
-
-/*-----------------------------------------------------------*/
-static void fs_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
-{
-    switch(state)
+    wddr_init(&wddr, WDDR_BASE_ADDR, &table);
+    if (wddr_boot(&wddr) != WDDR_SUCCESS)
     {
-        case FS_STATE_IDLE:
-        case FS_STATE_WAIT_FOR_SWITCH:
-            vComplete(&lock_event);
-            break;
-        // Erorr out
-        case FS_STATE_FAIL:
-            reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
-            while(1);
-            break;
-        default:
-            break;
+        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
     }
+
+    vTaskDelete(NULL);
 }
 
 /*-----------------------------------------------------------*/
@@ -187,7 +131,6 @@ void vApplicationIdleHook( void )
     important that vApplicationIdleHook() is permitted to return to its calling
     function, because it is the responsibility of the idle task to clean up
     memory allocated by the kernel to any task that has since been deleted. */
-    wait_for_interrupt();
 }
 /*-----------------------------------------------------------*/
 
