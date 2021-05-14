@@ -39,6 +39,7 @@ typedef struct fs_fsm_t
     TimerHandle_t       timer;
     init_complete_cb_t  init_complete_cb;
     void                *init_complete_cb_args;
+    bool                hw_switch_only;
 } fs_fsm_t;
 
 /**
@@ -121,6 +122,20 @@ wddr_return_t freq_switch_event_prep(fs_fsm_t *fsm, fs_prep_data_t *prep_data);
  * @retval      WDDR_ERROR if FSM not in correct state to invoke FSM.
  */
 wddr_return_t freq_switch_event_sw_switch(fs_fsm_t *fsm);
+
+/**
+ * @brief   Frequency Switch FSM HW Switch Mode
+ *
+ * @details Sets the Frequency Switch FSM to only accept HW switches.
+ *          All SW switch requests will return WDDR_ERROR once this is called.
+ *
+ * @param[in]   fsm     pointer to Frequency Switch FSM.
+ *
+ * @return      returns if successfully switch to hw freq switch only mode.
+ * @retval      WDDR_SUCCESS if FSM successfully completed switch mode.
+ * @retval      WDDR_ERROR if hardware not in correct state to switch.
+ */
+wddr_return_t freq_switch_event_hw_switch_mode(fs_fsm_t *fsm);
 
 /**
  * @brief   Frequency Switch FSM Register Init Complete Callback Function

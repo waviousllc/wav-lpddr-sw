@@ -7,6 +7,7 @@
 #define _DFI_DRIVER_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <dfi/device.h>
 #include <dfi/table.h>
 
@@ -155,7 +156,7 @@ void dfi_paden_pext_cfg_reg_if(dfi_dev_t *dfi, dfi_paden_pext_cfg_t *cfg);
 void dfi_clken_pext_cfg_reg_if(dfi_dev_t *dfi, dfi_clken_pext_cfg_t *cfg);
 
 /**
- * @brief   DFI Overrite Traffic Confguration Register Interface
+ * @brief   DFI Override Traffic Confguration Register Interface
  *
  * @details Override traffic select and value via CSR.
  *
@@ -165,5 +166,38 @@ void dfi_clken_pext_cfg_reg_if(dfi_dev_t *dfi, dfi_clken_pext_cfg_t *cfg);
  * @return      void
  */
 void dfi_ovr_traffic_cfg_reg_if(dfi_dev_t *dfi, dfi_ovr_traffic_cfg_t *cfg);
+
+/**
+ * @brief   DFI Set Init Complete SW Override Register Interface
+ *
+ * @details Set Init Complete Override via CSR.
+ *
+ * @param[in]   enable  Init Complete Override CSR value.
+ *
+ * @return      void
+ */
+void dfi_set_init_complete_ovr_reg_if(bool enable);
+
+/**
+ * @brief   DFI Set Init Start SW Override Register Interface
+ *
+ * @details Set Init Start Override via CSR.
+ *
+ * @param[in]   enable  Init Start Override CSR value.
+ *
+ * @return      void
+ */
+void dfi_set_init_start_ovr_reg_if(bool enable);
+
+/**
+ * @brief   DFI Get Init Start Status Register Interface
+ *
+ * @details Get Init Start Status via CSR.
+ *
+ * @param[out]  init_start  Pointer to return current Init Start Status.
+ *
+ * @return      void
+ */
+void dfi_get_init_start_status_reg_if(uint32_t *init_start);
 
 #endif /* _DFI_DRIVER_H_ */

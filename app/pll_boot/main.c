@@ -20,6 +20,8 @@
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
 #include <wddr/device.h>
+#include <clk/driver.h>
+#include <fsw/driver.h>
 
 /*******************************************************************************
 **                                   MACROS
@@ -133,8 +135,6 @@ static void fs_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
 /*-----------------------------------------------------------*/
 static void prvSetupHardware( void )
 {
-    uint32_t reg_val, clken_reg;
-
     // Initialize
     common_path_init(&wddr.cmn, WDDR_MEMORY_MAP_CMN);
     pll_init(&wddr.pll, WDDR_MEMORY_MAP_PLL);
@@ -146,27 +146,15 @@ static void prvSetupHardware( void )
     pll_boot(&wddr.pll);
 
     // Enable Clocks
-    reg_val = reg_read(WDDR_MEMORY_MAP_CTRL + DDR_CTRL_CLK_CFG__ADR);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CTRL_CLK_CFG_PLL_CLK_EN, 0x1);
-    reg_write(WDDR_MEMORY_MAP_CTRL + DDR_CTRL_CLK_CFG__ADR, reg_val);
-
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CTRL_CLK_CFG_MCU_GFM_SEL, 0x1);
-    reg_write(WDDR_MEMORY_MAP_CTRL + DDR_CTRL_CLK_CFG__ADR, reg_val);
-
-    clken_reg = reg_read(WDDR_MEMORY_MAP_CMN + DDR_CMN_CLK_CTRL_CFG__ADR);
-    clken_reg = UPDATE_REG_FIELD(clken_reg, DDR_CMN_CLK_CTRL_CFG_PLL0_DIV_CLK_RST, 0x0);
-    reg_write(WDDR_MEMORY_MAP_CMN + DDR_CMN_CLK_CTRL_CFG__ADR, clken_reg);
-
-    clken_reg = UPDATE_REG_FIELD(clken_reg, DDR_CMN_CLK_CTRL_CFG_GFCM_EN, 0x1);
-    reg_write(WDDR_MEMORY_MAP_CMN + DDR_CMN_CLK_CTRL_CFG__ADR, clken_reg);
+    clk_ctrl_set_pll_clk_en_reg_if(true);
+    clk_ctrl_set_mcu_gfm_sel_reg_if(CLK_MCU_GFM_SEL_PLL_VCO0);
+    clk_cmn_ctrl_set_pll0_div_clk_rst_reg_if(false);
+    clk_cmn_ctrl_set_gfcm_en_reg_if(true);
 
     // Turn off PHY CLK gating
-    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CSP_1_CFG__ADR);
-    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CSP_1_CFG_CLK_DISABLE_OVR_VAL, 0x0);
-    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CSP_1_CFG__ADR, reg_val);
+    fsw_csp_set_clk_disable_ovr_val_reg_if(false);
 
-    clken_reg = UPDATE_REG_FIELD(clken_reg, DDR_CMN_CLK_CTRL_CFG_PLL0_DIV_CLK_EN, 0x1);
-    reg_write(WDDR_MEMORY_MAP_CMN + DDR_CMN_CLK_CTRL_CFG__ADR, clken_reg);
+    clk_cmn_ctrl_set_pll0_div_clk_en_reg_if(true);
 }
 
 /*-----------------------------------------------------------*/

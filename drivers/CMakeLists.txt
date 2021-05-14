@@ -1,5 +1,7 @@
+add_subdirectory(clk)
 add_subdirectory(dfi)
 add_subdirectory(driver)
+add_subdirectory(fsw)
 add_subdirectory(gearbox)
 add_subdirectory(ibias)
 add_subdirectory(lpde)

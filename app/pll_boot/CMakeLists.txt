@@ -33,6 +33,8 @@ target_link_libraries(
     pll_fsm
     path
     fs_fsm
+    fsw_driver
+    clk_driver
     "-Wl,--end-group"
 )
 
