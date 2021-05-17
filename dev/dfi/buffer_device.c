@@ -27,11 +27,6 @@ void dfi_buffer_init(dfi_buffer_dev_t *dfi_buffer, uint32_t base)
 {
     dfi_buffer->base = base;
     dfi_buffer_init_reg_if(dfi_buffer, base);
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer,
-                              &dfi_buffer->tx_packets[0],
-                              PACKET_BUFFER_DEPTH);
-    dfi_rx_packet_buffer_init(&dfi_buffer->rx_packet_buffer);
-
     // By default, enable hold feature
     dfi_buffer_set_wdata_hold_reg_if(dfi_buffer, true);
 }
@@ -90,7 +85,8 @@ static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
 
 
 wddr_return_t dfi_buffer_read_packets(dfi_buffer_dev_t *dfi_buffer,
-                                            uint8_t num_packets)
+                                      dfi_rx_packet_buffer_t *rx_buffer,
+                                      uint8_t num_packets)
 {
     wddr_return_t ret;
     uint8_t nn = 0;
@@ -103,7 +99,7 @@ wddr_return_t dfi_buffer_read_packets(dfi_buffer_dev_t *dfi_buffer,
     do
     {
 
-        ret = dfi_buffer_read_eg_fifo_reg_if(dfi_buffer, dfi_buffer->rx_packet_buffer.buffer[nn].raw_data);
+        ret = dfi_buffer_read_eg_fifo_reg_if(dfi_buffer, rx_buffer->buffer[nn].raw_data);
     } while(++nn < num_packets && ret == WDDR_SUCCESS);
     return ret;
 }
