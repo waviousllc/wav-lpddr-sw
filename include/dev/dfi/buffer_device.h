@@ -35,18 +35,11 @@ typedef enum dfi_fifo_state_t
  * @details Device representing send and receive sides of DFI Buffer (FIFO).
  *
  * base                 base address of the DFI Buffer Device.
- * tx_packet_buffer     internal tx packet buffer that can be used to send Commands
- *                      to the DRAM.
- * tx_packets           storage of DFI TX Packets used with TX packet buffer member.
- * rx_packet_buffer     rx packet buffer for storing received DFI packets.
  * ig_empty_completion  completion variable for synchronization of ig_empty event.
  */
 typedef struct dfi_buffer_dev_t
 {
     uint32_t                base;
-    dfi_tx_packet_buffer_t  tx_packet_buffer;
-    packet_item_t           tx_packets[PACKET_BUFFER_DEPTH];
-    dfi_rx_packet_buffer_t  rx_packet_buffer;
     Completion_t            ig_empty_completion;
 } dfi_buffer_dev_t;
 
@@ -134,6 +127,7 @@ wddr_return_t dfi_buffer_fill_and_send_packets(dfi_buffer_dev_t *dfi_buffer,
  * @details Read given number of packets from the EG FIFO.
  *
  * @param[in]       dfi_buffer      pointer to the DFI Buffer device.
+ * @param[out]      rx_buffer       pointer to the RX Packet buffer to read into.
  * @param[inout]    num_packets     number of packets to read / were read.
  *
  * @return          returns if requested number of packets were read.
@@ -142,6 +136,7 @@ wddr_return_t dfi_buffer_fill_and_send_packets(dfi_buffer_dev_t *dfi_buffer,
  *                  number of requested packets have been read.
  */
 wddr_return_t dfi_buffer_read_packets(dfi_buffer_dev_t *dfi_buffer,
+                                      dfi_rx_packet_buffer_t *rx_buffer,
                                       uint8_t num_packets);
 
 #endif /* _DFI_BUFFER_DEV_H_ */

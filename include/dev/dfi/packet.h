@@ -452,19 +452,13 @@ typedef struct packet_item_t
  * @details In memory packet buffer that is used to prepare DFI packets
  *          prior to flushing to hardware.
  *
- * num_packets      number of packets allocated in packet storage.
- * packet_index     index of next packet allocation.
  * ts_last_packet   timestamp of last packet stored in buffer.
  * list             linked list of packets. (This is the "buffer").
- * packets          pointer to storage where packets have been allocated.
  */
 typedef struct dfi_tx_packet_buffer_t
 {
-    uint8_t         num_packets;
-    uint8_t         packet_index;
     uint16_t        ts_last_packet;
     List_t          list;
-    packet_item_t   *packets;
 } dfi_tx_packet_buffer_t;
 
 /**
@@ -528,14 +522,21 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
  * @details Initializes a TX packet buffer.
  *
  * @param[out]  buffer      pointer to tx packet buffer.
- * @param[in]   packet      pointer to packet storage for the buffer.
- * @param[in]   num_packets number of packets allocated via storage.
  *
  * @return      void
  */
-void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer,
-                               packet_item_t *packets,
-                               uint8_t num_packets);
+void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer);
+
+/**
+ * @brief   DFI TX Packet Buffer Free
+ *
+ * @details Frees all packets in the TX packet buffer.
+ *
+ * @param[in]   buffer  pointer to tx packet buffer to free.
+ *
+ * @return  void
+ */
+void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer);
 
 /**
  * @brief   DFI RX Packet Buffer Init
