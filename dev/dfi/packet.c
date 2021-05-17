@@ -9,6 +9,11 @@
 #define DFI_PACK_CKE_VAL        ((WDDR_PHY_RANK << 1) - 1)
 #define GET_LAST_ITEM(LIST)     (listGET_PREV((MiniListItem_t *) listGET_END_MARKER(LIST)))
 #define GET_LAST_PACKET(LIST)   ((packet_item_t *) listGET_LIST_ITEM_OWNER(GET_LAST_ITEM(LIST)))
+#define FREE_PACKET(PACKET)     \
+    {                           \
+        uxListRemove(PACKET);   \
+        vPortFree(PACKET);      \
+    }
 
 static dfi_command_cfg_t dfi_command_mission_cfg =
 {
@@ -37,19 +42,6 @@ static dfi_command_cfg_t dfi_command_mission_cfg =
     // Packet Group Phases
     .group_num_phases = {1,1,1,1,2,2,2,2},
 };
-
-/**
- * @brief   DFI TX Packet Buffer Pop Packet
- *
- * @details Helper function to get next free packet in the buffer.
- *
- * @param[in]   buffer      pointer to tx packet buffer.
- *
- * @return      pointer to packet item.
- * @retval      NULL if no free packets.
- * @retval      valid pointer otherwise
- */
-static packet_item_t * dfi_tx_packet_buffer_pop_packet(dfi_tx_packet_buffer_t *buffer);
 
 /**
  * @brief   DFI Command Fill Packet Group
@@ -89,16 +81,20 @@ static wddr_return_t dfi_tx_packet_buffer_insert_packet(dfi_tx_packet_buffer_t *
                                                         List_t *head);
 
 
-void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer,
-                               packet_item_t *packets,
-                               uint8_t num_packets)
+void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer)
 {
     memset(buffer, 0, sizeof(dfi_tx_packet_buffer_t));
-    memset(packets, 0, sizeof(packet_item_t) * num_packets);
     vListInitialise(&buffer->list);
-    buffer->packets = packets;
-    buffer->num_packets = num_packets;
     buffer->ts_last_packet = 1;
+}
+
+void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer)
+{
+    ListItem_t *pxCurr, *pxNext;
+    listFOR_EACH_LIST_ITEM_SAFE(pxCurr, pxNext, &buffer->list)
+    {
+        FREE_PACKET(pxCurr);
+    }
 }
 
 void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
@@ -109,15 +105,6 @@ void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
 void dfi_tx_packet_get_mission_cfg(dfi_command_cfg_t **cfg)
 {
     *cfg = &dfi_command_mission_cfg;
-}
-
-static packet_item_t * dfi_tx_packet_buffer_pop_packet(dfi_tx_packet_buffer_t *buffer)
-{
-    if (buffer->packet_index < buffer->num_packets)
-    {
-        return &buffer->packets[buffer->packet_index++];
-    }
-    return NULL;
 }
 
 static void dfi_command_fill_packet_group(command_t *command,
@@ -254,7 +241,7 @@ static wddr_return_t dfi_tx_packet_buffer_insert_packet(dfi_tx_packet_buffer_t *
     // Have to find at least one because of the end packet that's added
     if (!vListIsItemValueContainedWithin(head, timestamp))
     {
-        current_packet = dfi_tx_packet_buffer_pop_packet(buffer);
+        current_packet = pvPortMalloc(sizeof(packet_item_t));
         if (current_packet == NULL)
         {
             return WDDR_ERROR;
@@ -415,7 +402,7 @@ wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
     // Get last valid packet end timestamp and remove extra packet
     last_packet = GET_LAST_PACKET(&command_list);
     buffer->ts_last_packet = last_packet->packet.packet.time - 1;
-    uxListRemove(&last_packet->list_item);
+    FREE_PACKET(&last_packet->list_item);
 
     // Add to existing packet list
     vListSplice(&buffer->list, &command_list);

@@ -44,34 +44,38 @@ void dram_power_down(__UNUSED__ dram_dev_t *dram,
                      dfi_buffer_dev_t *dfi_buffer,
                      dfi_command_cfg_t *cfg)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command = {0};
     command.command_type = COMMAND_TYPE_CK;
 
      // Initialize TX Packet Buffer
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
+    dfi_tx_packet_buffer_init(&packet_buffer);
 
     // Get DRAM into Power Down state
     // Force CK to toggle for at least 10 cycles without CKE
-    dfi_tx_packet_buffer_fill(&command, &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command, &dfi_buffer->tx_packet_buffer, cfg, 10);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_fill(&command, &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command, &packet_buffer, cfg, 10);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_idle(__UNUSED__ dram_dev_t *dram,
                dfi_buffer_dev_t *dfi_buffer,
                dfi_command_cfg_t *cfg)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command[2] = {0};
     command[0].command_type = COMMAND_TYPE_CK;
     command[1].command_type = COMMAND_TYPE_CKE;
 
     // Initialize TX Packet Buffer
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
+    dfi_tx_packet_buffer_init(&packet_buffer);
 
     // Get DRAM into IDLE state
-    dfi_tx_packet_buffer_fill(&command[0], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command[1], &dfi_buffer->tx_packet_buffer, cfg, 30);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_fill(&command[0], &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command[1], &packet_buffer, cfg, 30);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 
@@ -81,6 +85,7 @@ void dram_frequency_init(__UNUSED__ dram_dev_t *dram,
                          dram_freq_cfg_t *dram_cfg,
                          dram_freq_cal_t *dram_cal)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command[INIT_TOTAL_IDX] = {0};
     command[INIT_CK_IDX].command_type = COMMAND_TYPE_CK;
     command[INIT_CKE_IDX].command_type = COMMAND_TYPE_CKE;
@@ -92,22 +97,24 @@ void dram_frequency_init(__UNUSED__ dram_dev_t *dram,
     create_write_mode_register_command(&command[INIT_MR14_IDX], CS_0, 0xE, dram_cal->mr14);     // MR14
 
     // Initialize TX Packet Buffer
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
+    dfi_tx_packet_buffer_init(&packet_buffer);
 
     // Issue MR0/1/11/12/13/14
-    dfi_tx_packet_buffer_fill(&command[INIT_MR1_IDX], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command[INIT_MR2_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[INIT_MR11_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[INIT_MR12_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[INIT_MR14_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[INIT_CKE_IDX], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_fill(&command[INIT_MR1_IDX], &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command[INIT_MR2_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[INIT_MR11_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[INIT_MR12_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[INIT_MR14_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[INIT_CKE_IDX], &packet_buffer, cfg, 1);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_cbt_enter(dram_dev_t *dram,
                     dfi_buffer_dev_t *dfi_buffer,
                     dfi_command_cfg_t *cfg)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command[CBT_TOTAL_IDX] = {0};
     command[CBT_CK_IDX].command_type = COMMAND_TYPE_CK;
     command[CBT_CKE_IDX].command_type = COMMAND_TYPE_CKE;
@@ -115,17 +122,19 @@ void dram_cbt_enter(dram_dev_t *dram,
     dram->mr13 |= CBT__MSK;
     create_write_mode_register_command(&command[CBT_MR13_IDX], CS_0, 0xD, dram->mr13);
 
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
-    dfi_tx_packet_buffer_fill(&command[CBT_MR13_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command[CBT_CK_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_init(&packet_buffer);
+    dfi_tx_packet_buffer_fill(&command[CBT_MR13_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command[CBT_CK_IDX], &packet_buffer, cfg, 15);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_cbt_exit(dram_dev_t *dram,
                    dfi_buffer_dev_t *dfi_buffer,
                    dfi_command_cfg_t *cfg)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command[CBT_TOTAL_IDX] = {0};
     command[CBT_CK_IDX].command_type = COMMAND_TYPE_CK;
     command[CBT_CKE_IDX].command_type = COMMAND_TYPE_CKE;
@@ -133,12 +142,13 @@ void dram_cbt_exit(dram_dev_t *dram,
     dram->mr13 &= ~CBT__MSK;
     create_write_mode_register_command(&command[CBT_MR13_IDX], CS_0, 0xD, dram->mr13);
 
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
-    dfi_tx_packet_buffer_fill(&command[CBT_CK_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command[CBT_MR13_IDX], &dfi_buffer->tx_packet_buffer, cfg, 15);
-    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_init(&packet_buffer);
+    dfi_tx_packet_buffer_fill(&command[CBT_CK_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command[CBT_MR13_IDX], &packet_buffer, cfg, 15);
+    dfi_tx_packet_buffer_fill(&command[CBT_CKE_IDX], &packet_buffer, cfg, 1);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_vrcg_enable(dram_dev_t *dram,
@@ -163,15 +173,17 @@ static void dram_write_mode_register(__UNUSED__ dram_dev_t *dram,
                                  uint8_t mr,
                                  uint8_t op)
 {
+    dfi_tx_packet_buffer_t packet_buffer;
     command_t command[2] = {0};
     command[0].command_type = COMMAND_TYPE_CKE;
 
     create_write_mode_register_command(&command[1], CS_0, mr, op);
 
-    dfi_tx_packet_buffer_init(&dfi_buffer->tx_packet_buffer, &dfi_buffer->tx_packets[0], PACKET_BUFFER_DEPTH);
-    dfi_tx_packet_buffer_fill(&command[1], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_tx_packet_buffer_fill(&command[0], &dfi_buffer->tx_packet_buffer, cfg, 1);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &dfi_buffer->tx_packet_buffer.list);
+    dfi_tx_packet_buffer_init(&packet_buffer);
+    dfi_tx_packet_buffer_fill(&command[1], &packet_buffer, cfg, 1);
+    dfi_tx_packet_buffer_fill(&command[0], &packet_buffer, cfg, 1);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_write_mode_register_13(dram_dev_t *dram,
