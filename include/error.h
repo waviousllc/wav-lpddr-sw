@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: GPL-3.0
  */
 #ifndef _ERROR_H_
 #define _ERROR_H_

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: GPL-3.0
  */
 // MODULE DFI
 // RANGE 0x03FF:0x0000
