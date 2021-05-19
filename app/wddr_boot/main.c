@@ -14,6 +14,7 @@
 
 /* Kernel includes. */
 #include <kernel/io.h>
+#include <kernel/notification.h>
 
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
@@ -46,6 +47,9 @@ int main( void )
 {
     // Setup Hardware
     prvSetupHardware();
+
+    // Initialize Notification Task
+    xNotificationTaskInit();
 
     // Initialize FSM Task
     xFSMTaskInit();

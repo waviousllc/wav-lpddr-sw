@@ -16,6 +16,7 @@
 /* Kernel includes. */
 #include <kernel/io.h>
 #include <kernel/messenger.h>
+#include <kernel/notification.h>
 
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
@@ -58,6 +59,9 @@ int main( void )
 
     // Initialize Messenger Task
     xMessengerTaskInit();
+
+    // Initialize Notification Task
+    xNotificationTaskInit();
 
     /* At this point, you can create queue,semaphore, task requested for your application */
     xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, 2, NULL );

@@ -26,12 +26,13 @@
 #include <wddr/device.h>
 #include <wddr/driver.h>
 #include <wddr/memory_map.h>
+#include <wddr/notification_map.h>
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
-/** @brief  Frequency Switch State Machine callback */
-static void fsw_state_change_callback(fsm_t *fsm, uint8_t state, void *args);
+/** @brief   Internal Notification Handler */
+static void notification_handler(Notification_t notification, void *args);
 
 /** @brief  Internal Frequency Switch Function */
 static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id);
@@ -85,10 +86,13 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
     // DRAM
     dram_init(&wddr->dram);
 
+    // Notification Init
+    vInitNotificationEndpoint(&wddr->endpoint, notification_handler, wddr);
+    vRegisterNotificationEndpoint(&wddr->endpoint);
+
     // FSM
     pll_fsm_init(&wddr->fsm.pll, &wddr->pll);
     freq_switch_fsm_init(&wddr->fsm.fsw, &wddr->fsm.pll);
-    fsm_register_state_change_callback(&wddr->fsm.fsw.fsm, fsw_state_change_callback, wddr);
     dfi_master_fsm_init(&wddr->fsm.dfimstr);
     dfi_update_fsm_init(&wddr->fsm.dfiupd, wddr, wddr_iocal_update_csr, wddr_iocal_calibrate);
 }
@@ -261,12 +265,12 @@ static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id)
     return WDDR_SUCCESS;
 }
 
-static void fsw_state_change_callback(fsm_t *fsm, uint8_t state, void *args)
+static void notification_handler(Notification_t notification, void *args)
 {
     wddr_dev_t *wddr = (wddr_dev_t *) args;
-    if (fsm->current_state == FS_STATE_IDLE ||
-        fsm->current_state == FS_STATE_WAIT_FOR_SWITCH ||
-        fsm->current_state == FS_STATE_FAIL)
+    if (notification == WDDR_NOTIF_FSW_PREP_DONE ||
+        notification == WDDR_NOTIF_FSW_DONE ||
+        notification == WDDR_NOTIF_FSW_FAILED)
     {
         vComplete(&wddr->fsw_event);
     }

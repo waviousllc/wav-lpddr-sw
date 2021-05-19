@@ -8,6 +8,7 @@
 
 #include <error.h>
 #include <kernel/completion.h>
+#include <kernel/notification.h>
 #include <dfi/device.h>
 #include <dfi_master/fsm.h>
 #include <dfi_update/fsm.h>
@@ -44,6 +45,7 @@ typedef struct channel_t
  * base         base address of WDDR (top-level).
  * fsw_event    private completion variable for use with FSW FSM.
  *              Internal use only.
+ * endpoint     Notification endpoint.
  * channel      all channels.
  * cmn          all devices in common path.
  * dfi          DFI device.
@@ -58,13 +60,14 @@ typedef struct channel_t
  */
 typedef struct wddr_dev_t
 {
-    uint32_t        base;
-    Completion_t    fsw_event;
-    channel_t       channel[WDDR_PHY_CHANNEL_NUM];
-    common_path_t   cmn;
-    dfi_dev_t       dfi;
-    dram_dev_t      dram;
-    pll_dev_t       pll;
+    uint32_t                base;
+    Completion_t            fsw_event;
+    NotificationEndpoint_t  endpoint;
+    channel_t               channel[WDDR_PHY_CHANNEL_NUM];
+    common_path_t           cmn;
+    dfi_dev_t               dfi;
+    dram_dev_t              dram;
+    pll_dev_t               pll;
     struct
     {
         pll_fsm_t           pll;
@@ -72,7 +75,7 @@ typedef struct wddr_dev_t
         dfi_update_fsm_t    dfiupd;
         dfi_master_fsm_t    dfimstr;
     } fsm;
-    wddr_table_t    *table;
+    wddr_table_t            *table;
 } wddr_dev_t;
 
 /**
