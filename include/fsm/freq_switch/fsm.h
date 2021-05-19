@@ -32,6 +32,7 @@ typedef void (*init_complete_cb_t)(struct fs_fsm_t *fsm, void *args);
  * timer                    Watchdog timer handle.
  * init_complete_cb         Init Complete Callback Function.
  * init_complete_cb_args    Init Complete Callback Function Arguments.
+ * hw_switch_only           Flag for not accepting SW switch requests.
  */
 typedef struct fs_fsm_t
 {

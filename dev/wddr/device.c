@@ -48,6 +48,12 @@ static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr);
 /** @brief  Internal Function for preparing WDDR PHY for frequency switch */
 static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
 
+/** @brief  Internal Function passed to DFI Update FSM performing IOCAL Update */
+static void wddr_iocal_update_csr(void *dev);
+
+/** @brief  Internal Function passed to DFI Update FSM performing IOCAL Cal */
+static void wddr_iocal_calibrate(void *dev);
+
 void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
 {
     uint32_t channel_base = 0x0;
@@ -83,6 +89,8 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
     pll_fsm_init(&wddr->fsm.pll, &wddr->pll);
     freq_switch_fsm_init(&wddr->fsm.fsw, &wddr->fsm.pll);
     fsm_register_state_change_callback(&wddr->fsm.fsw.fsm, fsw_state_change_callback, wddr);
+    dfi_master_fsm_init(&wddr->fsm.dfimstr);
+    dfi_update_fsm_init(&wddr->fsm.dfiupd, wddr, wddr_iocal_update_csr, wddr_iocal_calibrate);
 }
 
 wddr_return_t wddr_boot(wddr_dev_t *wddr)
@@ -335,6 +343,39 @@ static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr)
     {
         wddr_clear_fifo_reg_if(wddr, channel);
     }
+}
+
+static void wddr_iocal_update_csr(void *dev)
+{
+    wddr_dev_t *wddr = (wddr_dev_t *) dev;
+    uint8_t freq_id;
+
+    // Get current pll frequency id
+    pll_fsm_get_current_freq(&wddr->fsm.pll, &freq_id);
+
+    // Update IOCAL
+    for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
+    {
+        for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
+        {
+            // Update CK
+            driver_cmn_set_code_reg_if(&wddr->channel[channel].ca.tx.rank[rank].ck.driver,
+                wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[rank].ck.driver.code);
+
+            // Update DQS
+            for (uint8_t dq_byte = 0; dq_byte < WDDR_PHY_DQ_BYTE_NUM; dq_byte++)
+            {
+                driver_cmn_set_code_reg_if(&wddr->channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver,
+                    wddr->table->cal.freq[freq_id].channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver.code);
+            }
+        }
+    }
+}
+
+static void wddr_iocal_calibrate(void *dev)
+{
+    wddr_dev_t *wddr = (wddr_dev_t *) dev;
+    zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal);
 }
 
 /*******************************************************************************

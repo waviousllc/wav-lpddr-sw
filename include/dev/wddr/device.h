@@ -9,6 +9,8 @@
 #include <error.h>
 #include <kernel/completion.h>
 #include <dfi/device.h>
+#include <dfi_master/fsm.h>
+#include <dfi_update/fsm.h>
 #include <dram/device.h>
 #include <freq_switch/fsm.h>
 #include <path/ca.h>
@@ -49,6 +51,8 @@ typedef struct channel_t
  * pll          PLL device.
  * fsm.pll      PLL FSM.
  * fsm.fsw      Frequency Switch FSM.
+ * fsm.dfiupd   DFI Update FSM.
+ * fsm.dfimstr  DFI Master FSM.
  * table        pointer to calibration and configuration table for all
  *              frequencies.
  */
@@ -63,8 +67,10 @@ typedef struct wddr_dev_t
     pll_dev_t       pll;
     struct
     {
-        pll_fsm_t   pll;
-        fs_fsm_t    fsw;
+        pll_fsm_t           pll;
+        fs_fsm_t            fsw;
+        dfi_update_fsm_t    dfiupd;
+        dfi_master_fsm_t    dfimstr;
     } fsm;
     wddr_table_t    *table;
 } wddr_dev_t;
