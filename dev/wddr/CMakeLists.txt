@@ -42,6 +42,8 @@ target_link_libraries(
     wddr_driver
     pll_fsm
     fs_fsm
+    dfi_master_fsm
+    dfi_update_fsm
     path
     dfi
     pll

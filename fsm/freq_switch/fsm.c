@@ -53,7 +53,7 @@ static void handle_phy_init_complete(int irq_num, void *args);
 /** @brief  Callback function for PLL state change events */
 static void pll_state_change_cb(fsm_t *pll_fsm, uint8_t state, void *args);
 
-/** @brief  Watchdog Timer Hanlder for all timeout events */
+/** @brief  Watchdog Timer Handler for all timeout events */
 static void watchdog_expired_handler(TimerHandle_t handle);
 
 /** @brief  Table specifying state, guard, and exit functions for all states */
