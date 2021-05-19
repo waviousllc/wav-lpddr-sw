@@ -6,8 +6,10 @@
 #include <stddef.h>
 #include <compiler.h>
 #include <wddr/memory_map.h>
+#include <wddr/notification_map.h>
 #include <kernel/io.h>
 #include <kernel/irq.h>
+#include <kernel/notification.h>
 #include <wddr/irq_map.h>
 #include <pll/fsm.h>
 #include <freq_switch/fsm.h>
@@ -189,6 +191,7 @@ static bool freq_switch_sw_switch_guard(fsm_t *fsm, void *data)
 static void freq_switch_state_fail(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
 {
     // Report ERROR
+    vSendNotification(WDDR_NOTIF_FSW_FAILED);
 }
 
 static void freq_switch_state_wait_for_switch(fsm_t *fsm, void *data)
@@ -275,6 +278,9 @@ static void freq_switch_state_post_switch(fsm_t *fsm, __UNUSED__ void *data)
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_VCO_TOGGLE_EN, 0x1);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_MSR_TOGGLE_EN, 0x1);
     reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+
+    // Send Notification
+    vSendNotification(WDDR_NOTIF_FSW_DONE);
 
     fsm_handle_internal_event(fsm, FS_STATE_IDLE, NULL);
 }
@@ -403,6 +409,9 @@ static void pll_state_change_cb(__UNUSED__ fsm_t *pll_fsm, uint8_t state, void *
             reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE_OVR, 0x0);
         }
         reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+
+        // Send Notifcation
+        vSendNotification(WDDR_NOTIF_FSW_PREP_DONE);
 
         // Wait for transition
         fsm_handle_external_event(&fs_fsm->fsm, FS_STATE_WAIT_FOR_SWITCH, fs_fsm);
