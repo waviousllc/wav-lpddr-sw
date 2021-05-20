@@ -83,7 +83,6 @@ static wddr_return_t dfi_tx_packet_buffer_insert_packet(dfi_tx_packet_buffer_t *
 
 void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer)
 {
-    memset(buffer, 0, sizeof(dfi_tx_packet_buffer_t));
     vListInitialise(&buffer->list);
     buffer->ts_last_packet = 1;
 }
@@ -95,6 +94,8 @@ void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer)
     {
         FREE_PACKET(pxCurr);
     }
+
+    buffer->ts_last_packet = 1;
 }
 
 void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
