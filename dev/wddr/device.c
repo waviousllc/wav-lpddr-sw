@@ -3,10 +3,17 @@
  *
  * SPDX-License-Identifier: GPL-3.0
  */
+
+/* Standard includes. */
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
+
+/* Kernel includes. */
 #include <kernel/io.h>
 #include <dfi/driver.h>
+
+/* LPDDR includes. */
 #include <driver/driver.h>
 #include <driver/cmn_driver.h>
 #include <fsw/driver.h>
@@ -34,8 +41,11 @@
 /** @brief   Internal Notification Handler */
 static void notification_handler(Notification_t notification, void *args);
 
+/** @brief  Internal Common WDDR Frequency Switch Implementation */
+static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch);
+
 /** @brief  Internal Frequency Switch Function */
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id);
+static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
 
 /** @brief  Internal Function to enable all PHY LPDEs and Phase Interpolators */
 static void wddr_enable(wddr_dev_t *wddr);
@@ -129,7 +139,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     }
 
     // Switch to PHY_BOOT Frequency
-    PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ));
+    PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
 
     // Turn on LPDE / Phase Interpolators in PHY
     wddr_enable(wddr);
@@ -218,7 +228,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
     while (current_vco_id != VCO_INDEX_PHY_1)
     {
-        PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ));
+        PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
         pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
     }
 
@@ -228,10 +238,17 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     return WDDR_SUCCESS;
 }
 
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id)
+wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
+{
+    uint32_t reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_STA__ADR);
+    uint8_t next_msr = !GET_REG_FIELD(reg_val, DDR_FSW_CTRL_STA_CMN_MSR);
+    return wddr_freq_switch_prv(wddr, freq_id, next_msr, false);
+}
+
+static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch)
 {
     fs_prep_data_t fs_prep_data = {
-        .msr = WDDR_MSR_0,
+        .msr = msr,
         .prep_data = {
             .freq_id = freq_id,
             .cal = &wddr->table->cal.freq[freq_id].pll,
@@ -252,17 +269,25 @@ static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id)
     }
 
     // Perform frequency switch
-    freq_switch_event_sw_switch(&wddr->fsm.fsw);
-
-    // Wait for switch to complete
-    vWaitForCompletion(&wddr->fsw_event);
-    configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_IDLE);
-    if (wddr->fsm.fsw.fsm.current_state != FS_STATE_IDLE)
+    if (sw_switch)
     {
-        return WDDR_ERROR;
+        freq_switch_event_sw_switch(&wddr->fsm.fsw);
+
+        // Wait for switch to complete
+        vWaitForCompletion(&wddr->fsw_event);
+        configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_IDLE);
+        if (wddr->fsm.fsw.fsm.current_state != FS_STATE_IDLE)
+        {
+            return WDDR_ERROR;
+        }
     }
 
     return WDDR_SUCCESS;
+}
+
+static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+{
+    return wddr_freq_switch_prv(wddr, freq_id, msr, true);
 }
 
 static void notification_handler(Notification_t notification, void *args)
