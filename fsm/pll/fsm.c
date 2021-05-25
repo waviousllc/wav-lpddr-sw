@@ -96,6 +96,9 @@ void pll_fsm_prep_event(pll_fsm_t *fsm, pll_prep_data_t *data)
     uint32_t reg_val;
     pll_dev_t *pll = (pll_dev_t *) fsm->instance;
 
+    // Disable interrupts
+    disable_irq(MCU_FAST_IRQ_PLL);
+
     // Disable PLL interrupts
     reg_val = reg_read(pll->base + DDR_MVP_PLL_CORE_STATUS_INT_EN__ADR);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_INT_EN_INITIAL_SWITCH_DONE_INT_EN, 0x0);
@@ -106,9 +109,9 @@ void pll_fsm_prep_event(pll_fsm_t *fsm, pll_prep_data_t *data)
     fsm_handle_external_event(fsm, PLL_STATE_PREP, data);
 }
 
-void pll_fsm_switch_event(pll_fsm_t *fsm)
+void pll_fsm_switch_event(pll_fsm_t *fsm, bool is_sw_switch)
 {
-    fsm_handle_external_event(fsm, PLL_STATE_SWITCH, NULL);
+    fsm_handle_external_event(fsm, PLL_STATE_SWITCH, (void *) is_sw_switch);
 }
 
 void pll_fsm_get_current_freq(pll_fsm_t *fsm, uint8_t *freq_id)
@@ -173,25 +176,22 @@ static void pll_fsm_prep_done_state_handler(fsm_t *fsm, void *data)
     pll_dev_t *pll = (pll_dev_t *) fsm->instance;
 
     // Enable Initial Lock interrupt
+    // This should be here so don't miss initial switch doen event when HW / SW switch happens
     reg_val = reg_read(pll->base + DDR_MVP_PLL_CORE_STATUS_INT_EN__ADR);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_INT_EN_INITIAL_SWITCH_DONE_INT_EN, 0x1);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_INT_EN_CORE_LOCKED_INT_EN, 0x0);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_INT_EN_LOSS_OF_LOCK_INT_EN, 0x0);
     reg_write(pll->base + DDR_MVP_PLL_CORE_STATUS_INT_EN__ADR, reg_val);
-
-    // Enable interrupt in CPU
-    enable_irq(MCU_FAST_IRQ_PLL);
 }
 
 static void pll_fsm_switch_state_handler(fsm_t *fsm, __UNUSED__ void *data)
 {
     pll_dev_t *pll = (pll_dev_t *) fsm->instance;
-
-    // Disable interrupts
-    disable_irq(MCU_FAST_IRQ_PLL);
+    bool is_sw_switch = (bool) data;
 
     // Switch PLL
-    pll_switch_vco(pll, true);
+    pll_switch_vco(pll, is_sw_switch);
+
     fsm_handle_internal_event(fsm, PLL_STATE_NOT_LOCKED, NULL);
 }
 

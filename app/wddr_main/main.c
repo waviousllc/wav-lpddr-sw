@@ -20,6 +20,7 @@
 
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
+#include <wddr/notification_map.h>
 #include <wddr/device.h>
 #include <clk/driver.h>
 #include <fsw/driver.h>
@@ -36,7 +37,7 @@
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
-static void handle_message(Message_t *message);
+static void handle_message(const Message_t *message);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -88,6 +89,9 @@ static void vMainTask( void *pvParameters )
 
     // Initialize messenger interface
     wddr_messenger_init(&message_intf);
+
+    // TODO: Send MSG Interface Ready message
+    // TODO: Receive Boot Message to continue
 
     // Initialize WDDR
     wddr_init(&wddr, WDDR_BASE_ADDR, &table);
@@ -198,8 +202,34 @@ void vAssertCalled( void )
     _exit(1);
 }
 
-void handle_message(Message_t *message)
+/*-----------------------------------------------------------*/
+void handle_message(const Message_t *message)
 {
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, message->id);
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, message->data);
+    uint8_t freq_id;
+    Message_t resp_msg;
+    switch(message->id)
+    {
+        // Prep Request
+        case MESSAGE_WDDR_FREQ_PREP_REQ:
+            // Extract Frequency ID
+            freq_id = GET_REG_FIELD(message->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
+
+            // Reset message for sending
+            resp_msg.data = 0x0;
+            resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
+
+            // Prepare for switch
+            if (wddr_prep_switch(&wddr, freq_id))
+            {
+                // Mark as failure
+                resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__STATUS, 0x1);
+            }
+
+            // Send Prep Response
+            resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
+            wddr_messenger_send(&message_intf, &resp_msg);
+            break;
+        default:
+            return;
+    }
 }

@@ -76,11 +76,13 @@ void pll_fsm_prep_event(pll_fsm_t *fsm, pll_prep_data_t *data);
  *
  * @details Switches PLL VCO. Only valid to call if FSM is in PREP state.
  *
- * @param[in]   fsm         pointer to PLL FSM.
+ * @param[in]   fsm             pointer to PLL FSM.
+ * @param[in]   is_sw_switch    flag to indicate if SW switch.
+ *                              false indicates HW switched PLL VCOs.
  *
  * @return      void
  */
-void pll_fsm_switch_event(pll_fsm_t *fsm);
+void pll_fsm_switch_event(pll_fsm_t *fsm, bool is_sw_switch);
 
 /**
  * @brief   PLL FSM Current Frequency

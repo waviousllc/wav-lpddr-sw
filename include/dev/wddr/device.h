@@ -110,5 +110,18 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table);
  */
 wddr_return_t wddr_boot(wddr_dev_t *wddr);
 
+/**
+ * @brief   Wavious DDR (WDDR) Prep Switch
+ *
+ * @details Prepares WDDR device for a frequency switch.
+ *
+ * @param[in]   wddr    pointer to WDDR device.
+ * @param[in]   freq_id ID of frequency to prepare.
+ *
+ * @return      returns whether prep completed successfully.
+ * @retval      WDDR_SUCCESS if successful.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id);
 
 #endif /* _WDDR_DEV_H_ */

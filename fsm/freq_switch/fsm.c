@@ -238,7 +238,7 @@ static void freq_switch_state_switch(fsm_t *fsm, void *data)
     fsw_ctrl_set_msr_vco_ovr_reg_if(true);
 
     // Switch PLL to PHY Frequency
-    pll_fsm_switch_event(pll_fsm);
+    pll_fsm_switch_event(pll_fsm, true);
 
     fsm_handle_internal_event(fsm, FS_STATE_WAIT_FOR_LOCK, fsm);
 }
@@ -290,22 +290,26 @@ static void freq_switch_state_wait_for_lock(fsm_t *fsm, void *data)
     fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
     pll_fsm_t *pll_fsm = (pll_fsm_t *) (fsm->instance);
 
-    // If PLL already locked, go to post switch
+    // If PLL already locked, go to post switch (only happens for SW switch)
     if (pll_fsm->current_state == PLL_STATE_LOCKED)
     {
         // Cancel Watchdog Timer
         xTimerStop(fs_fsm->timer, 0);
 
         fsm_handle_internal_event(fsm, FS_STATE_POST_SWITCH, NULL);
+        return;
     }
-    // Start watchdog timer otherwise
-    else
+
+    // Start timer
+    if (xTimerReset(fs_fsm->timer, 0) == pdFALSE)
     {
-        if (xTimerReset(fs_fsm->timer, 0) == pdFALSE)
-        {
-            fsm_handle_internal_event(fsm, FS_STATE_FAIL, NULL);
-            return;
-        }
+        fsm_handle_internal_event(fsm, FS_STATE_FAIL, NULL);
+    }
+
+    // Let PLL know that HW switch happened
+    if (pll_fsm->current_state == PLL_STATE_PREP_DONE)
+    {
+        pll_fsm_switch_event(pll_fsm, false);
     }
 }
 

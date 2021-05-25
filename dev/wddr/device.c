@@ -3,10 +3,17 @@
  *
  * SPDX-License-Identifier: GPL-3.0
  */
+
+/* Standard includes. */
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
+
+/* Kernel includes. */
 #include <kernel/io.h>
 #include <dfi/driver.h>
+
+/* LPDDR includes. */
 #include <driver/driver.h>
 #include <driver/cmn_driver.h>
 #include <fsw/driver.h>
@@ -29,19 +36,38 @@
 #include <wddr/notification_map.h>
 
 /*******************************************************************************
+**                           VARIABLE DECLARATIONS
+*******************************************************************************/
+packet_item_t packets[20] __attribute__ ((section (".data")))= {0};
+
+/*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 /** @brief   Internal Notification Handler */
 static void notification_handler(Notification_t notification, void *args);
 
+/** @brief  Internal Common WDDR Frequency Switch Implementation */
+static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch);
+
 /** @brief  Internal Frequency Switch Function */
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id);
+static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
 
 /** @brief  Internal Function to enable all PHY LPDEs and Phase Interpolators */
 static void wddr_enable(wddr_dev_t *wddr);
 
 /** @brief  Internal Function to flush DFI interfaces using DFI Buffer */
-static void wddr_dfi_buffer_flush(wddr_dev_t *wddr);
+static void wddr_dfi_buffer_flush(dfi_buffer_dev_t *dfi_buffer);
+
+/**
+ * @brief   WDDR DFI Buffer Prime
+ *
+ * @details Internal Function to prime DFI interface for smooth hand-offs
+ *          during frequency switch.
+ */
+static void wddr_dfi_buffer_prime(dfi_buffer_dev_t *dfi_buffer);
+
+/** @brief  Internal Function to prepare MRW updates for frequency switch */
+static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_freq_cfg_t *cfg);
 
 /** @brief  Internal Function to clear FIFO for all channels */
 static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr);
@@ -54,6 +80,13 @@ static void wddr_iocal_update_csr(void *dev);
 
 /** @brief  Internal Function passed to DFI Update FSM performing IOCAL Cal */
 static void wddr_iocal_calibrate(void *dev);
+
+/** @brief  Init Complete Callback. Sends MRWs for next frequency during switch. */
+static void wddr_init_complete_callback(fs_fsm_t *fsm, void *args);
+
+/*******************************************************************************
+**                              IMPLEMENTATIONS
+*******************************************************************************/
 
 void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
 {
@@ -129,7 +162,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     }
 
     // Switch to PHY_BOOT Frequency
-    PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ));
+    PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
 
     // Turn on LPDE / Phase Interpolators in PHY
     wddr_enable(wddr);
@@ -138,7 +171,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     wddr_clear_fifo_all_channels(wddr);
     fsw_csp_sync_reg_if();
     wddr_configure_phy(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0);
-    wddr_dfi_buffer_flush(wddr);
+    wddr_dfi_buffer_flush(&wddr->dfi.dfi_buffer);
     wddr_clear_fifo_all_channels(wddr);
 
     // Release override of CS / CKE TX Drivers
@@ -214,13 +247,19 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
         wddr_set_chip_select_reg_if(wddr, channel, WDDR_RANK_0, false);
     } // Channel loop
 
+    // Prime DFI buffer
+    wddr_dfi_buffer_prime(&wddr->dfi.dfi_buffer);
+
     // Switch VCOs until on VCO_INDEX_PHY_1
     pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
     while (current_vco_id != VCO_INDEX_PHY_1)
     {
-        PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ));
+        PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
         pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
     }
+
+    // Register init_complete callback
+    freq_switch_register_init_complete_callback(&wddr->fsm.fsw, wddr_init_complete_callback, wddr);
 
     // Switch to HW frequency switch mode
     PROPAGATE_ERROR(freq_switch_event_hw_switch_mode(&wddr->fsm.fsw));
@@ -228,10 +267,38 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     return WDDR_SUCCESS;
 }
 
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id)
+wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
+{
+    uint32_t reg_val;
+    uint8_t next_msr;
+
+    if (freq_id >= WDDR_PHY_FREQ_NUM ||
+        !wddr->table->valid[freq_id])
+    {
+        return WDDR_ERROR;
+    }
+
+    // Get next MSR
+    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_STA__ADR);
+    next_msr = !GET_REG_FIELD(reg_val, DDR_FSW_CTRL_STA_CMN_MSR);
+
+    // Configure PHY
+    wddr_configure_phy(wddr, freq_id, next_msr);
+
+    // Prepare MRW sequence in DFI Buffer
+    wddr_prep_freq_switch_mrw_update(&wddr->dfi.dfi_buffer,
+                                     &wddr->table->cfg.freq[freq_id].dram);
+
+    // Prep PLL for a switch
+    PROPAGATE_ERROR(wddr_freq_switch_prv(wddr, freq_id, next_msr, false));
+
+    return WDDR_SUCCESS;
+}
+
+static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch)
 {
     fs_prep_data_t fs_prep_data = {
-        .msr = WDDR_MSR_0,
+        .msr = msr,
         .prep_data = {
             .freq_id = freq_id,
             .cal = &wddr->table->cal.freq[freq_id].pll,
@@ -252,17 +319,25 @@ static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id)
     }
 
     // Perform frequency switch
-    freq_switch_event_sw_switch(&wddr->fsm.fsw);
-
-    // Wait for switch to complete
-    vWaitForCompletion(&wddr->fsw_event);
-    configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_IDLE);
-    if (wddr->fsm.fsw.fsm.current_state != FS_STATE_IDLE)
+    if (sw_switch)
     {
-        return WDDR_ERROR;
+        freq_switch_event_sw_switch(&wddr->fsm.fsw);
+
+        // Wait for switch to complete
+        vWaitForCompletion(&wddr->fsw_event);
+        configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_IDLE);
+        if (wddr->fsm.fsw.fsm.current_state != FS_STATE_IDLE)
+        {
+            return WDDR_ERROR;
+        }
     }
 
     return WDDR_SUCCESS;
+}
+
+static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+{
+    return wddr_freq_switch_prv(wddr, freq_id, msr, true);
 }
 
 static void notification_handler(Notification_t notification, void *args)
@@ -288,7 +363,7 @@ static void wddr_enable(wddr_dev_t *wddr)
     }
 }
 
-static void wddr_dfi_buffer_flush(wddr_dev_t *wddr)
+static void wddr_dfi_buffer_flush(dfi_buffer_dev_t *dfi_buffer)
 {
     /**
      * @note    For boot procedure, all DFI signals need to be flushed. To do
@@ -335,7 +410,75 @@ static void wddr_dfi_buffer_flush(wddr_dev_t *wddr)
     vListInsertEnd(&packet_list, &packets[1].list_item);
 
     // Send packets to initialize buffer for first time
-    dfi_buffer_fill_and_send_packets(&wddr->dfi.dfi_buffer, &packet_list);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_list);
+
+    // Must disable buffer when done
+    dfi_buffer_disable(dfi_buffer);
+}
+static void wddr_dfi_buffer_prime(dfi_buffer_dev_t *dfi_buffer)
+{
+    dfi_tx_packet_buffer_t buffer;
+
+    // Prime DFI buffer with CKE sequence
+    dfi_tx_packet_buffer_init(&buffer);
+    create_cke_packet_sequence(&buffer, 1);
+    create_cke_packet_sequence(&buffer, 10);
+    dfi_buffer_fill_and_send_packets(dfi_buffer, &buffer.list);
+
+    // Free packets
+    dfi_tx_packet_buffer_free(&buffer);
+
+    // Must disable buffer when done
+    dfi_buffer_disable(dfi_buffer);
+}
+
+static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_freq_cfg_t *cfg)
+{
+    dfi_tx_packet_buffer_t packet_buffer;
+    packet_storage_t storage = {
+        .packets = packets,
+        .len = 20,
+        .index = 0,
+    };
+
+    // Initialize TX Packet Buffer
+    dfi_tx_packet_buffer_init(&packet_buffer);
+    packet_buffer.storage = &storage;
+
+    // Allocate and Initialize
+    for (uint8_t j = 0; j < storage.len; j++)
+    {
+        for (uint8_t i = 0; i < TX_PACKET_SIZE_WORDS; i--)
+        {
+            storage.packets[j].packet.raw_data[i] = 0;
+        }
+    }
+
+    create_cke_packet_sequence(&packet_buffer, 1);
+
+    for (uint8_t rank = CS_0; rank < WDDR_PHY_RANK; rank++)
+    {
+        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x01, cfg->mr1, 10);
+        create_cke_packet_sequence(&packet_buffer, 1);
+        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x02, cfg->mr2, 10);
+        create_cke_packet_sequence(&packet_buffer, 1);
+        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x0B, cfg->mr11, 10);
+        create_cke_packet_sequence(&packet_buffer, 1);
+    }
+
+    // Prefill packets
+    dfi_buffer_fill_packets(dfi_buffer, &packet_buffer.list);
+
+    // Free packet buffer
+    dfi_tx_packet_buffer_free(&packet_buffer);
+}
+
+static void wddr_init_complete_callback(__UNUSED__ fs_fsm_t *fsm, void *args)
+{
+    wddr_dev_t *wddr = (wddr_dev_t *) args;
+
+    // Send MRW from DFI Buffer
+    dfi_buffer_send_packets(&wddr->dfi.dfi_buffer, false);
 
     // Must disable buffer when done
     dfi_buffer_disable(&wddr->dfi.dfi_buffer);
