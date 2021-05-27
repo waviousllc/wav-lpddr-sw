@@ -49,16 +49,22 @@ wddr_return_t dfi_buffer_fill_packets(dfi_buffer_dev_t *dfi_buffer,
     return WDDR_SUCCESS;
 }
 
-void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer)
+void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer, bool should_block)
 {
-    dfi_buffer_send_packets_reg_if(dfi_buffer);
+    // Call blocking version of API
+    if (should_block)
+    {
+        return dfi_buffer_send_packets_reg_if(dfi_buffer);
+    }
+
+    return dfi_buffer_send_packets_non_blocking_reg_if(dfi_buffer);
 }
 
 wddr_return_t dfi_buffer_fill_and_send_packets(dfi_buffer_dev_t *dfi_buffer,
                                                List_t *packet_list)
 {
     PROPAGATE_ERROR(dfi_buffer_fill_packets(dfi_buffer, packet_list));
-    dfi_buffer_send_packets(dfi_buffer);
+    dfi_buffer_send_packets(dfi_buffer, true);
     return WDDR_SUCCESS;
 }
 

@@ -73,16 +73,30 @@ void dfi_buffer_set_wdata_hold_reg_if(dfi_buffer_dev_t *dfi_buffer, bool enable)
 /**
  * @brief   DFI Buffer Send Packets Register Interface
  *
- * @details Enables logic to send packets from IG FIFO. This function blocks
- *          until the IG FIFO is empty. If IG FIFO is arleady empty, then
- *          function returns immediately. This function turns on and leaves
- *          Buffer Mode enabled after returning.
+ * @details Enables logic to send packets from IG FIFO. This function will put
+ *          current thread to sleep until the IG FIFO is empty.
+ *          If IG FIFO is arleady empty, then function returns immediately.
+ *          This function turns on and leaves Buffer Mode enabled.
  *
  * @param[in]   dfi_buffer  pointer to DFI Buffer device.
  *
  * @return      void
  */
 void dfi_buffer_send_packets_reg_if(dfi_buffer_dev_t *dfi_buffer);
+
+/**
+ * @brief   DFI Buffer Send Packets (Non-Blocking) Register Interface
+ *
+ * @details Enables logic to send packets from IG FIFO. This function blocks
+ *          (via polling) until the IG FIFO is empty. If IG FIFO is arleady
+ *          empty, then function returns immediately. This function turns on
+ *          and leaves Buffer Mode enabled.
+ *
+ * @param[in]   dfi_buffer  pointer to DFI Buffer device.
+ *
+ * @return      void
+ */
+void dfi_buffer_send_packets_non_blocking_reg_if(dfi_buffer_dev_t *dfi_buffer);
 
 /**
  * @brief   DFI Buffer Write IG FIFO Register Interface

@@ -31,7 +31,9 @@ static void set_command_chipselect(command_frame_t frame[MAX_COMMAND_FRAMES],
 {
     // Chipselect
     frame[0].cs = CS_HIGH << cs;
+    frame[1].cs = 0;
     frame[2].cs = CS_HIGH << cs;
+    frame[3].cs = 0;
 }
 
 static void create_self_refresh_entry_frame(command_frame_t frame[MAX_COMMAND_FRAMES],
