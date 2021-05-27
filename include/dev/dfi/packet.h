@@ -14,6 +14,10 @@
 
 #define PACKET_BUFFER_DEPTH         (32)
 #define PACKET_MAX_NUM_PHASES       (8)
+#define TX_PACKET_SIZE_BYTES        (sizeof(dfi_tx_packet_t))
+#define TX_PACKET_SIZE_WORDS        (TX_PACKET_SIZE_BYTES / sizeof(uint32_t))
+#define RX_PACKET_SIZE_BYTES        (sizeof(dfi_rx_packet_t))
+#define RX_PACKET_SIZE_WORDS        (RX_PACKET_SIZE_BYTES / sizeof(uint32_t))
 
 #define DFI_PACK_DCE_WIDTH          (1)
 #define DFI_PACK_CS_WIDTH           (2)
@@ -42,45 +46,6 @@ typedef enum packet_data_mask_t
     PACKET_DATA_MASK_ODD    = 2,
     PACKET_DATA_MASK_BOTH   = (PACKET_DATA_MASK_EVEN | PACKET_DATA_MASK_ODD)
 } packet_data_mask_t;
-
-/**
- * @brief Packet Group Enumerations
- *
- * @details Groups of fields assocaited with DFI signal within a DFI packet.
- *
- * DCE              CK Toggle.
- * CKE              Clock enable.
- * CS               Command Chipselect.
- * COMMAND          Command Address.
- * WRDATA           Write Data.
- * WRDATA_EN        Write Data Enable.
- * RDATA_EN         Read Data Enable.
- * RDATA_CS         Read Data Chip select.
- */
-typedef enum packet_group_t
-{
-    PACKET_GROUP_COMMAND_DCE,
-    PACKET_GROUP_COMMAND_CKE,
-    PACKET_GROUP_COMMAND_CS,
-    PACKET_GROUP_COMMAND,
-    PACKET_GROUP_WRDATA_EN,
-    PACKET_GROUP_WRDATA,
-    PACKET_GROUP_RDDATA_EN,
-    PACKET_GROUP_RDDATA_CS,
-    PACKET_GROUP_TOTAL_NUM
-} packet_group_t;
-
-/**
- * @brief Packing Mode Enuemrations
- *
- * @details Supported packing modes for filling in a packet buffer.
- *
- * UNPACKED    No packing. Commands are sequential.
- */
-typedef enum packing_mode_t
-{
-    PACKING_MODE_UNPACKED,
-} packing_mode_t;
 
 /**
  * @brief DFI TX Packet Description
@@ -447,6 +412,24 @@ typedef struct packet_item_t
 } packet_item_t;
 
 /**
+ * @brief   Packet Storage Structure
+ *
+ * @details Structure used as storage for allocating packets from. This
+ *          can be attached to a dfi_tx_packet_buffer_t instance to use
+ *          as storage backend, rather than using malloc.
+ *
+ * packets  pointer to underlying storage.
+ * index    current packet index within storage.
+ * len      number of packets pointed to by packets member.
+ */
+typedef struct packet_storage_t
+{
+    packet_item_t   *packets;
+    uint8_t         index;
+    uint8_t         len;
+} packet_storage_t;
+
+/**
  * @brief    DFI TX Packet Buffer
  *
  * @details In memory packet buffer that is used to prepare DFI packets
@@ -454,11 +437,14 @@ typedef struct packet_item_t
  *
  * ts_last_packet   timestamp of last packet stored in buffer.
  * list             linked list of packets. (This is the "buffer").
+ * storage          pointer to optional storage backend to allocate packets
+ *                  from rather than using malloc.
  */
 typedef struct dfi_tx_packet_buffer_t
 {
-    uint16_t        ts_last_packet;
-    List_t          list;
+    uint16_t            ts_last_packet;
+    List_t              list;
+    packet_storage_t    *storage;
 } dfi_tx_packet_buffer_t;
 
 /**
@@ -475,46 +461,6 @@ typedef struct dfi_rx_packet_buffer_t
 {
     dfi_rx_packet_t buffer[PACKET_BUFFER_DEPTH];
 } dfi_rx_packet_buffer_t;
-
-/**
- * @brief   DFI Command Configuration Structure
- *
- * @details DFI Command Configuration Structure is used to describe the DFI
- *          timing for DFI packets.
- *
- * ratio                frequency Ratio between DFI and DRAM CK.
- * group_num_phases     number of phases that a packet group can use.
- * group_offsets        relative offset between groups within a packet for a
- *                      given command.
- * group_lengths        length of each group for a given command.
- */
-typedef struct dfi_command_cfg_t
-{
-    wddr_freq_ratio_t ratio;
-    uint8_t group_num_phases[PACKET_GROUP_TOTAL_NUM];
-    uint16_t group_offsets[COMMAND_TYPE_TOTAL_NUM][PACKET_GROUP_TOTAL_NUM];
-    uint16_t group_lengths[COMMAND_TYPE_TOTAL_NUM][PACKET_GROUP_TOTAL_NUM];
-} dfi_command_cfg_t;
-
-/**
- * @brief   DFI TX Packet Buffer Fill
- *
- * @details TX Packet Buffer Fill Algorithm.
- *
- *
- * @param[in]   command         pointer to command to be sent via DFI packets.
- * @param[out]  packet_bufer    pointer to the packet buffer to fill in.
- * @param[in]   cfg             pointer to command configuration used to
- *                              fill in DFI packets.
- * @param[in]   ts_offset       timestamp offset relative to previous packet
- *                              in the buffer. Ignored if packet buffer is empty.
- *
- * @return
- */
-wddr_return_t dfi_tx_packet_buffer_fill(command_t *command,
-                                       dfi_tx_packet_buffer_t *buffer,
-                                       dfi_command_cfg_t *cfg,
-                                       uint16_t ts_offset);
 
 /**
  * @brief   DFI TX Packet Buffer Initialization
@@ -574,14 +520,61 @@ void dfi_rx_packet_buffer_data_compare(dfi_rx_packet_buffer_t *buffer,
                                        uint8_t *is_same);
 
 /**
- * @brief   DFI TX Packet Get Mission Configuration
+ * @brief   Create CK Packet Sequence
  *
- * @details Returns a pointer to pre allocated DFI Command Configuraton.
+ * @details Creates a single packet that has only DCE field enabled for all
+ *          phases.
  *
- * @param[out]  cfg   pointer to a pointer storing dfi command config structure.
+ * @param[in]   buffer      pointer to packet buffer to save packet to.
+ * @param[in]   time_offset time offset from previous packet that the packet
+ *                          should be sent.
  *
- * @return      void
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
  */
-void dfi_tx_packet_get_mission_cfg(dfi_command_cfg_t **cfg);
+wddr_return_t create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                        uint16_t time_offset);
 
+/**
+ * @brief   Create CKE Packet Sequence
+ *
+ * @details Creates a single packet that has only DCE and CKE fields enabled for
+ *          all phases.
+ *
+ * @param[in]   buffer      pointer to packet buffer to save packet to.
+ * @param[in]   time_offset time offset from previous packet that the packet
+ *                          should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_cke_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                         uint16_t time_offset);
+
+/**
+ * @brief   Create MRW Packet Sequence
+ *
+ * @details Creates a set of packets in order to send the specified MRW to
+ *          the DRAM.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   ratio           ratio of DFI CK to DRAM CK.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   mode_register   which mode reigster number.
+ * @param[in]   op              mode register op data.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                        wddr_freq_ratio_t ratio,
+                                        chipselect_t cs,
+                                        uint8_t mode_register,
+                                        uint8_t op,
+                                        uint16_t time_offset);
 #endif /* _DFI_PACKET_H_ */

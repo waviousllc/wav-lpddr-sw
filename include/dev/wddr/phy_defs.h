@@ -175,9 +175,9 @@ typedef enum wddr_msr_t
  */
 typedef enum wddr_freq_ratio_t
 {
-    WDDR_FREQ_RATIO_1TO1 = 1,
-    WDDR_FREQ_RATIO_1TO2 = 2,
-    WDDR_FREQ_RATIO_1TO4 = 4,
+    WDDR_FREQ_RATIO_1TO1 = 0,
+    WDDR_FREQ_RATIO_1TO2 = 1,
+    WDDR_FREQ_RATIO_1TO4 = 2,
 } wddr_freq_ratio_t;
 
 #endif /* _WDDR_PHY_DEFS_H_ */
