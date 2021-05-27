@@ -97,16 +97,24 @@ void receiver_disable(receiver_dev_t  *receiver);
  * @details Performs Receiver Calibration Procedure. The calibration is
  *          common for all frequencies.
  *
+ * @note    WDDR PHY must be configured properly before calling this function.
+ *          Calibration can only be performed if TX Driver is in loopback mode
+ *          and MSR0 is set. These steps are not done in this procedure to
+ *          avoid coupling unrelated devices together.
  *
  * @param[in]   receiver    pointer to Receiver Device.
  * @param[out]  cal         pointer to common frequncy calibration structure
  *                          to fill in with calibration data.
+ * @param[in]   output_addr address where output of receiver can be read for
+ *                          calibration feedback.
  *
  * @return      returns whether calibration was successful.
  * @return      WDDR_SUCCESS if successful.
  * @return      WDDR_ERROR otherwise.
  */
-wddr_return_t receiver_calibrate(receiver_dev_t *receiver, receiver_common_cal_t *cal);
+wddr_return_t receiver_calibrate(receiver_dev_t *receiver,
+                                 receiver_common_cal_t *cal,
+                                 uint32_t output_addr);
 
 /**
  * @brief   Receiver Set Delay

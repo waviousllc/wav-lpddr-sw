@@ -197,8 +197,44 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
         // Force chipselect since calibration assumes CS=0
         wddr_set_chip_select_reg_if(wddr, channel, WDDR_RANK_0, true);
 
+        uint32_t channel_base = wddr->base +
+                                WDDR_MEMORY_MAP_PHY_CH_START +
+                                WDDR_MEMORY_MAP_PHY_CH_OFFSET * channel;
+
         for (uint8_t byte = 0; byte < WDDR_PHY_DQ_BYTE_NUM; byte++)
         {
+
+            uint32_t bscan_addr = channel_base +
+                                   WDDR_MEMORY_MAP_PHY_DQ_OFFSET * byte +
+                                   DDR_DQ_DQS_RX_BSCAN_STA__ADR;
+
+            for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
+            {
+                // driver_cmn_dev_t *driver_cmn = &wddr->channel[channel].dq[byte].tx.rank[rank].dqs.driver;
+                driver_dev_t *driver = &wddr->channel[channel].dq[byte].tx.dqs.driver;
+                receiver_dev_t *recvr = &wddr->channel[channel].dq[byte].rx.rank[rank].dqs.receiver;
+
+                // DQS Loopback
+                // driver_cmn_set_mode_reg_if(driver_cmn, DRIVER_MODE_DIFF);
+                // driver_cmn_set_loopback_reg_if(driver_cmn, DRIVER_LOOPBACK_MODE_ENABLE);
+                // driver_cmn_set_bscan_en_reg_if(driver_cmn, true);
+
+                // TX Driver
+                for (uint8_t bit = 0; bit < WDDR_PHY_DQS_TXRX_SLICE_NUM; bit++)
+                {
+                    driver_set_impedance_reg_if(driver, WDDR_SLICE_TYPE_DQS, bit, DRIVER_IMPEDANCE_HIZ, DRIVER_IMPEDANCE_HIZ);
+                    driver_set_override_reg_if(driver, WDDR_SLICE_TYPE_DQS, bit, DRIVER_IMPEDANCE_240, 0x0, 0x0);
+                    // driver_set_oe_reg_if(driver, WDDR_SLICE_TYPE_DQS, bit, true);
+                }
+
+                // Perform calibration
+                wddr_return_t ret = receiver_calibrate(recvr,
+                                   &wddr->table->cal.common.channel[channel].dq[byte].rx.rank[rank].dqs.receiver,
+                                   bscan_addr);
+                reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, ret);
+                // TODO: Reset drivers
+            }
+
             #ifdef CONFIG_CALIBRATE_SA
             rx_gb_cfg_t cfg = {
                 .data_mode = DGB_2TO1_IR,

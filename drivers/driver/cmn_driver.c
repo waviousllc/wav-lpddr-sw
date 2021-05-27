@@ -99,3 +99,11 @@ void driver_cmn_set_loopback_reg_if(driver_cmn_dev_t *driver,
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_CA_DQS_TX_IO_CMN_M0_R0_CFG_LPBK_EN, mode);
     reg_write(driver->base, reg_val);
 }
+
+void driver_cmn_set_bscan_en_reg_if(driver_cmn_dev_t *driver, bool enable)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(driver->base);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CA_DQS_TX_IO_CMN_M0_R0_CFG_BS_EN, enable);
+    reg_write(driver->base, reg_val);
+}

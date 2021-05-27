@@ -70,21 +70,6 @@ void receiver_set_mode_reg_if(receiver_dev_t *receiver,
                               receiver_path_state_t path_state);
 
 /**
- * @brief   Receiver Calibrate Register Interface
- *
- * @details Performs calibration sequence of Receiver device via CSR.
- *
- * @param[in]   receiver    pointer to Receiver device.
- * @param[out]  code        pointer to table to store calibrated codes.
- *
- * @return      returns whether calibration was successful.
- * @return      WDDR_SUCCESS if successful.
- * @return      WDDR_ERROR otherwise.
- */
-wddr_return_t receiver_calibrate_reg_if(receiver_dev_t *receiver,
-                                        uint8_t code[REC_PN_SIDE_NUM][REC_TC_SIDE_NUM]);
-
-/**
  * @brief   Receiver Set Code Register Interface
  *
  * @details Sets the code values of the Receiver device via CSR.

@@ -6,6 +6,7 @@
 #ifndef _DRIVER_CMN_DRIVER_H_
 #define _DRIVER_CMN_DRIVER_H_
 
+#include <stdbool.h>
 #include <driver/device.h>
 
 /**
@@ -86,4 +87,5 @@ void driver_cmn_set_code_reg_if(driver_cmn_dev_t *driver,
 void driver_cmn_set_loopback_reg_if(driver_cmn_dev_t *driver,
                                     driver_loopback_mode_t mode);
 
+void driver_cmn_set_bscan_en_reg_if(driver_cmn_dev_t *driver, bool enable);
 #endif /* _DRIVER_CMN_DRIVER_H_ */
