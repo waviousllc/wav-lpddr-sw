@@ -111,7 +111,6 @@ typedef struct command_data_t
 typedef struct command_t
 {
     command_type_t  command_type;
-    chipselect_t    cs;
     command_frame_t address[MAX_COMMAND_FRAMES];
     command_data_t  *data;
 } command_t;

@@ -115,6 +115,23 @@ void dfi_buffer_send_packets_reg_if(dfi_buffer_dev_t *dfi_buffer)
     reg_write(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
 }
 
+void dfi_buffer_send_packets_non_blocking_reg_if(dfi_buffer_dev_t *dfi_buffer)
+{
+    uint32_t reg_val;
+    // Send packets
+    dfi_buffer_set_mode_reg_if(dfi_buffer, true);
+
+    do
+    {
+        reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_STA__ADR);
+    } while (GET_REG_FIELD(reg_val, DDR_DFICH_TOP_STA_IG_STATE) != DFI_FIFO_STATE_EMPTY);
+
+    // Disable Timestamp comparison logic
+    reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_TS_ENABLE, 0x0);
+    reg_write(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+}
+
 static void dfi_buffer_push_packet_into_fifo_reg_if(dfi_buffer_dev_t *dfi_buffer)
 {
     uint32_t reg_val;

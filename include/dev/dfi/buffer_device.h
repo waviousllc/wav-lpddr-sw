@@ -7,13 +7,14 @@
 #define _DFI_BUFFER_DEV_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <error.h>
 #include <dfi/packet.h>
 #include <kernel/completion.h>
 
 #define DFI_FIFO_DEPTH          (64)
-#define DFI_IG_FIFO_LOAD_NUM    (sizeof(dfi_tx_packet_t) / sizeof(uint32_t))
-#define DFI_EG_FIFO_LOAD_NUM    (sizeof(dfi_rx_packet_t) / sizeof(uint32_t))
+#define DFI_IG_FIFO_LOAD_NUM    (TX_PACKET_SIZE_WORDS)
+#define DFI_EG_FIFO_LOAD_NUM    (RX_PACKET_SIZE_WORDS)
 
 /**
  * @brief DFI FIFO State
@@ -97,13 +98,17 @@ wddr_return_t dfi_buffer_fill_packets(dfi_buffer_dev_t *dfi_buffer,
 /**
  * @brief   DFI Buffer Send Packets
  *
- * @details Sends the packets in the IG FIFO.
+ * @details Sends the packets in the IG FIFO. Can choose to block task or not.
  *
- * @param[in]   dfi_buffer  pointer to DFI Buffer device.
+ * @note    should_block must be false if calling this function from an
+ *          interrupt context.
+ *
+ * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   should_block    flag to indicate if task should be blocked.
  *
  * @return      void
  */
-void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer);
+void dfi_buffer_send_packets(dfi_buffer_dev_t *dfi_buffer, bool should_block);
 
 /**
  * @brief   DFI Buffer Fill and Send Packets
