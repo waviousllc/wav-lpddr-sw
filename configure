@@ -3,6 +3,7 @@
 
 # Definitions
 BUILD_DIR="build"
+BUILD_TYPE=""
 
 # Common build prep function
 init_build_common() {
@@ -15,18 +16,24 @@ init_lpddr() {
            -DCONFIG_SRC_ARCH="riscv" \
            -DCONFIG_TARGET_ARCH="riscv32" \
            -DCONFIG_TARGET_BOARD="wavious-mcu" \
-           -DCMAKE_BUILD_TYPE=""
+           -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
   cd ..
 }
 
 print_help() {
 echo "Usage: configure [OPTIONS]\n"
 echo "This program configures CMAKE for wavious lpddr project\n"
+echo "Options:"
+echo "-t, --build_type <Debug | Release>"
 }
 
 PARAMS=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    -t | --build_type)
+      BUILD_TYPE=$2
+      shift 2
+      ;;
     -h | --help)
       print_help
       exit
