@@ -46,7 +46,7 @@ void wddr_messenger_send(wddr_message_interface_t *messenger, Message_t *message
 
 bool wddr_messenger_receive(wddr_message_interface_t *messenger, Message_t *message)
 {
-    return (vReceiveMessage(messenger->address, message) == pdTRUE);
+    return (xReceiveMessage(messenger->address, message) == pdTRUE);
 }
 
 static bool wddr_messenger_validate(void *dev, void *buff, size_t len)
