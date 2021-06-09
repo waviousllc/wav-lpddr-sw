@@ -7,9 +7,9 @@ set(
 
 set(
     INCLUDE_DIRECTORY
-    ${CMAKE_SOURCE_DIR}/include/drivers
-    ${CMAKE_SOURCE_DIR}/include/dev
-    ${CMAKE_SOURCE_DIR}/include
+    ${WAV_WDDR_TOP_LEVEL}/include/drivers
+    ${WAV_WDDR_TOP_LEVEL}/include/dev
+    ${WAV_WDDR_TOP_LEVEL}/include
 )
 
 add_library(

@@ -7,7 +7,7 @@ set(
 
 set(
     INCLUDE
-    ${CMAKE_SOURCE_DIR}/include/fsm
+    ${WAV_WDDR_TOP_LEVEL}/include/fsm
 )
 
 add_library(

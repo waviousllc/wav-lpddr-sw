@@ -6,7 +6,7 @@ set(
 
 set(
     INCLUDE
-    ${CMAKE_SOURCE_DIR}/include/dev/
+    ${WAV_WDDR_TOP_LEVEL}/include/dev/
 )
 
 add_library(
