@@ -37,7 +37,7 @@ void driver_set_impedance_all_bits(driver_dev_t *driver,
             num_bits = WDDR_PHY_DQ_SLICE_NUM;
             break;
         case WDDR_SLICE_TYPE_DQS:
-            num_bits = WDDR_PHY_DQS_SLICE_NUM;
+            num_bits = WDDR_PHY_DQS_TXRX_SLICE_NUM;
             break;
         case WDDR_SLICE_TYPE_CA:
             num_bits = WDDR_PHY_CA_SLICE_NUM;

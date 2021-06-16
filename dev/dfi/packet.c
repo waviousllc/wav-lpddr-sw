@@ -80,7 +80,7 @@ wddr_return_t create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
     packet->packet.packet.dce_p2 = 1;
     packet->packet.packet.dce_p3 = 1;
     packet->packet.packet.time = time_offset;
-    buffer->ts_last_packet = time_offset - 1;
+    buffer->ts_last_packet = time_offset;
 
     // Add to list
     vListInitialiseItem(&packet->list_item);
@@ -112,7 +112,7 @@ wddr_return_t create_cke_packet_sequence(dfi_tx_packet_buffer_t *buffer,
     packet->packet.packet.cke_p2 = DFI_PACK_CKE_VAL;
     packet->packet.packet.cke_p3 = DFI_PACK_CKE_VAL;
     packet->packet.packet.time = time_offset;
-    buffer->ts_last_packet = time_offset - 1;
+    buffer->ts_last_packet = time_offset;
 
     // Add to list
     vListInitialiseItem(&packet->list_item);
@@ -175,11 +175,14 @@ static void create_packet(dfi_tx_packet_buffer_t *buffer, packet_item_t **packet
     }
     else
     {
-        new_packet = pvPortMalloc(sizeof(packet_item_t));
-        // Intialize packet
-        for (uint8_t i = 0; i < TX_PACKET_SIZE_WORDS; i--)
+        new_packet = (packet_item_t *) pvPortMalloc(sizeof(packet_item_t));
+        if (new_packet != NULL)
         {
-            new_packet->packet.raw_data[i] = 0;
+            // Intialize packet
+            for (uint8_t i = 0; i < TX_PACKET_SIZE_WORDS; i++)
+            {
+                new_packet->packet.raw_data[i] = 0;
+            }
         }
     }
 

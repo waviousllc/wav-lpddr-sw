@@ -120,7 +120,7 @@ typedef union dfi_clken_pext_cfg_t
  * sel_dq_rd   sets override fro DQ read path.
  * val_dq_rd   override value for DQ read path (only applies if sel = 1).
  */
-typedef struct dfi_ovr_traffic_cfg_t
+typedef union dfi_ovr_traffic_cfg_t
 {
     struct
     {

@@ -452,7 +452,7 @@ static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_
     // Allocate and Initialize
     for (uint8_t j = 0; j < storage.len; j++)
     {
-        for (uint8_t i = 0; i < TX_PACKET_SIZE_WORDS; i--)
+        for (uint8_t i = 0; i < TX_PACKET_SIZE_WORDS; i++)
         {
             storage.packets[j].packet.raw_data[i] = 0;
         }
