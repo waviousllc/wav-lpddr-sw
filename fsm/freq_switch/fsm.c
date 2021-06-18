@@ -19,11 +19,17 @@
 // Timer is 1ms minimum, add 1 extra tick to ensure > 1ms
 #define WD_TIMER_PERIOD ( pdMS_TO_TICKS( 1 ) + 1 )
 
-/** @brief  Gaurd Function for Frequency Switch PREP_SWITCH state */
+/** @brief  Guard Function for Frequency Switch PREP_SWITCH state */
 static bool freq_switch_prep_guard(fsm_t *fsm, void *data);
 
-/** @brief  Gaurd Function for Frequency Switch SWITCH state */
+/** @brief  Guard Function for Frequency Switch SWITCH state */
 static bool freq_switch_sw_switch_guard(fsm_t *fsm, void *data);
+
+/** @brie   Exit Function for Frequency Switch PREP_SWITCH state */
+static void freq_switch_prep_exit(fsm_t *fsm);
+
+/** @brie   Exit Function for Frequency Switch POST_SWITCH state */
+static void freq_switch_post_switch_exit(fsm_t *fsm);
 
 /** @brief  Frequency Switch State Handler for IDLE state */
 static void freq_switch_state_idle(fsm_t *fsm, void *data);
@@ -64,10 +70,10 @@ static const state_func_t state_table[] =
     // State Function                       Guard Function  Exit Function
     {freq_switch_state_idle,                NULL,           NULL},
     {freq_switch_state_fail,                NULL,           NULL},
-    {freq_switch_state_prep_switch,         NULL,           NULL},
+    {freq_switch_state_prep_switch,         NULL,           freq_switch_prep_exit},
     {freq_switch_state_wait_for_switch,     NULL,           NULL},
     {freq_switch_state_switch,              NULL,           NULL},
-    {freq_switch_state_post_switch,         NULL,           NULL},
+    {freq_switch_state_post_switch,         NULL,           freq_switch_post_switch_exit},
     {freq_switch_state_wait_for_lock,       NULL,           NULL},
 };
 
@@ -191,6 +197,16 @@ static bool freq_switch_sw_switch_guard(fsm_t *fsm, void *data)
             !fs_fsm->hw_switch_only);
 }
 
+static void freq_switch_prep_exit(__UNUSED__ fsm_t *fsm)
+{
+    vSendNotification(WDDR_NOTIF_FSW_PREP_DONE);
+}
+
+static void freq_switch_post_switch_exit(__UNUSED__ fsm_t *fsm)
+{
+    vSendNotification(WDDR_NOTIF_FSW_DONE);
+}
+
 static void freq_switch_state_fail(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
 {
     // Report ERROR
@@ -281,9 +297,6 @@ static void freq_switch_state_post_switch(fsm_t *fsm, __UNUSED__ void *data)
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_VCO_TOGGLE_EN, 0x1);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_MSR_TOGGLE_EN, 0x1);
     reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
-
-    // Send Notification
-    vSendNotification(WDDR_NOTIF_FSW_DONE);
 
     fsm_handle_internal_event(fsm, FS_STATE_IDLE, NULL);
 }
@@ -416,9 +429,6 @@ static void pll_state_change_cb(__UNUSED__ fsm_t *pll_fsm, uint8_t state, void *
             reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE_OVR, 0x0);
         }
         reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
-
-        // Send Notifcation
-        vSendNotification(WDDR_NOTIF_FSW_PREP_DONE);
 
         // Wait for transition
         fsm_handle_external_event(&fs_fsm->fsm, FS_STATE_WAIT_FOR_SWITCH, fs_fsm);
