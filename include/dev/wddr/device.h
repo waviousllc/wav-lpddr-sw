@@ -43,8 +43,7 @@ typedef struct channel_t
  *          the WDDR device.
  *
  * base         base address of WDDR (top-level).
- * fsw_event    private completion variable for use with FSW FSM.
- *              Internal use only.
+ * xHandle      private reference to task block by prep / switch request.
  * endpoint     Notification endpoint.
  * channel      all channels.
  * cmn          all devices in common path.
@@ -61,7 +60,7 @@ typedef struct channel_t
 typedef struct wddr_dev_t
 {
     uint32_t                base;
-    Completion_t            fsw_event;
+    TaskHandle_t            xHandle;
     NotificationEndpoint_t  endpoint;
     channel_t               channel[WDDR_PHY_CHANNEL_NUM];
     common_path_t           cmn;

@@ -15,11 +15,13 @@
 
 /* Kernel includes. */
 #include <kernel/io.h>
+#include <kernel/irq.h>
 #include <kernel/messenger.h>
 #include <kernel/notification.h>
 
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
+#include <wddr/irq_map.h>
 #include <wddr/notification_map.h>
 #include <wddr/device.h>
 #include <clk/driver.h>
@@ -30,7 +32,20 @@
 /*******************************************************************************
 **                                   MACROS
 *******************************************************************************/
-#define WDDR_BASE_ADDR  (0x00000000)
+#define WDDR_BASE_ADDR              (0x00000000)
+#define TIMER_INTERRUPT_MSK         (1 << 0x7)
+#define MESSENGER_REQ_INTERRUPT_MSK (1 << MCU_FAST_IRQ_HOST2PHY_REQ)
+#define MESSENGER_ACK_INTERRUPT_MSK (1 << MCU_FAST_IRQ_PHY2HOST_ACK)
+
+// Task priority least to greatest
+#define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 3)
+#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
+#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
+#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
+
+// Event Queues
+#define MESSENGER_TASK_QUEUE_LEN    (1)     // only 1 outstanding message at a time
+#define FSM_TASK_QUEUE_LEN          (20)    // 20 FSM events oustanding at a time
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
@@ -39,8 +54,6 @@ static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
 /** @brief  Internal function to handle received messages */
 static void handle_message(const Message_t *message);
-/** @brief  Internal function for sending prep done message */
-static void prep_done_callback(fsm_t *fsm, uint8_t state, void *args);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -59,16 +72,16 @@ int main( void )
     prvSetupHardware();
 
     // Initialize FSM Task
-    xFSMTaskInit();
+    xFSMTaskInit(FSM_TASK_PRIORITY, configMINIMAL_STACK_SIZE, FSM_TASK_QUEUE_LEN);
 
     // Initialize Messenger Task
-    xMessengerTaskInit();
+    xMessengerTaskInit(MESSENGER_TASK_PRIORITY, configMINIMAL_STACK_SIZE, MESSENGER_TASK_QUEUE_LEN);
 
     // Initialize Notification Task
-    xNotificationTaskInit();
+    xNotificationTaskInit(NOTIF_TASK_PRIORITY, configMINIMAL_STACK_SIZE);
 
     /* At this point, you can create queue,semaphore, task requested for your application */
-    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
 
     /* Start the tasks and timer running. */
     /* Here No task are defined, so if we start the Scheduler 2 tasks will running (Timer and Idle) */
@@ -103,8 +116,14 @@ static void vMainTask( void *pvParameters )
         reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
     }
 
-    // Register with FSM for prep done indication
-    fsm_register_state_change_callback(&wddr.fsm.fsw.fsm, prep_done_callback, NULL);
+    /**
+     * Drop priority and yield to finish low priority tasks before boot
+     * message is sent to the host. Once all tasks complete, control will
+     * be given back to vMainTask.
+     */
+    vTaskPrioritySet(NULL, tskIDLE_PRIORITY + 1);
+    taskYIELD();
+    vTaskPrioritySet(NULL, MAIN_TASK_PRIORITY);
 
     // Send Boot Complete Message
     wddr_messenger_send(&message_intf, &message);
@@ -147,7 +166,6 @@ static void prvSetupHardware( void )
 }
 
 /*-----------------------------------------------------------*/
-
 void vApplicationMallocFailedHook( void )
 {
     /* vApplicationMallocFailedHook() will only be called if
@@ -164,8 +182,8 @@ void vApplicationMallocFailedHook( void )
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
     _exit(1);
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationIdleHook( void )
 {
     /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
@@ -178,8 +196,8 @@ void vApplicationIdleHook( void )
     function, because it is the responsibility of the idle task to clean up
     memory allocated by the kernel to any task that has since been deleted. */
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 {
     ( void ) pcTaskName;
@@ -189,19 +207,17 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
     taskDISABLE_INTERRUPTS();
-
-    write( STDOUT_FILENO, "ERROR Stack overflow on func: ", 30 );
-    write( STDOUT_FILENO, pcTaskName, strlen( pcTaskName ) );
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
     _exit(1);
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationTickHook( void )
 {
     /* The tests in the full demo expect some interaction with interrupts. */
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vAssertCalled( void )
 {
     taskDISABLE_INTERRUPTS();
@@ -209,30 +225,22 @@ void vAssertCalled( void )
 }
 
 /*-----------------------------------------------------------*/
-static void prep_done_callback(__UNUSED__ fsm_t *fsm, uint8_t state, __UNUSED__ void *args)
-{
-    uint8_t freq_id;
-    Message_t msg;
-
-    // Wait for switch indicates prep done
-    if (state == FS_STATE_WAIT_FOR_SWITCH)
-    {
-        pll_fsm_get_next_freq(&wddr.fsm.pll, &freq_id);
-        msg.data = UPDATE_REG_FIELD(0x0, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
-        msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
-        wddr_messenger_send(&message_intf, &msg);
-    }
-}
-
-/*-----------------------------------------------------------*/
 void handle_message(const Message_t *message)
 {
     uint8_t freq_id;
-    Message_t resp_msg;
+    Message_t resp_msg = {0, 0};
     switch(message->id)
     {
         // Prep Request
         case MESSAGE_WDDR_FREQ_PREP_REQ:
+            /**
+             * Disable unecessary interrupts that would increase prep time if
+             * fired.
+             */
+            interrupt_disable(TIMER_INTERRUPT_MSK |
+                              MESSENGER_REQ_INTERRUPT_MSK |
+                              MESSENGER_ACK_INTERRUPT_MSK);
+
             // Extract Frequency ID
             freq_id = GET_REG_FIELD(message->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
 
@@ -241,12 +249,18 @@ void handle_message(const Message_t *message)
             {
                 // Mark as failure
                 resp_msg.data = UPDATE_REG_FIELD(0x0, WDDR_FREQ_PREP_RSP__STATUS, 0x1);
-                resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
-                resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
-                wddr_messenger_send(&message_intf, &resp_msg);
             }
+
+            resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
+            resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
+            wddr_messenger_send(&message_intf, &resp_msg);
+
+            // Re-enable interrupts
+            interrupt_enable(TIMER_INTERRUPT_MSK |
+                             MESSENGER_REQ_INTERRUPT_MSK |
+                             MESSENGER_ACK_INTERRUPT_MSK);
             break;
         default:
-            return;
+            break;
     }
 }

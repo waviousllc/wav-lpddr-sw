@@ -25,7 +25,16 @@
 /*******************************************************************************
 **                                   MACROS
 *******************************************************************************/
-#define WDDR_BASE_ADDR  (0x00000000)
+#define WDDR_BASE_ADDR              (0x00000000)
+
+// Task priority least to greatest
+#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
+#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
+#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
+
+// Event Queues
+#define FSM_TASK_QUEUE_LEN          (20)    // 20 FSM events oustanding at a time
+
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
@@ -49,13 +58,13 @@ int main( void )
     prvSetupHardware();
 
     // Initialize Notification Task
-    xNotificationTaskInit();
+    xNotificationTaskInit(NOTIF_TASK_PRIORITY, configMINIMAL_STACK_SIZE);
 
     // Initialize FSM Task
-    xFSMTaskInit();
+    xFSMTaskInit(FSM_TASK_PRIORITY, configMINIMAL_STACK_SIZE, FSM_TASK_QUEUE_LEN);
 
     /* At this point, you can create queue,semaphore, task requested for your application */
-    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
 
     /* Start the tasks and timer running. */
     /* Here No task are defined, so if we start the Scheduler 2 tasks will running (Timer and Idle) */
@@ -69,6 +78,7 @@ int main( void )
     or task have stoppped the Scheduler */
 }
 
+/*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
     wddr_init(&wddr, WDDR_BASE_ADDR, &table);
@@ -106,7 +116,6 @@ static void prvSetupHardware( void )
 }
 
 /*-----------------------------------------------------------*/
-
 void vApplicationMallocFailedHook( void )
 {
     /* vApplicationMallocFailedHook() will only be called if
@@ -120,10 +129,11 @@ void vApplicationMallocFailedHook( void )
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
     taskDISABLE_INTERRUPTS();
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
     _exit(1);
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationIdleHook( void )
 {
     /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
@@ -136,8 +146,8 @@ void vApplicationIdleHook( void )
     function, because it is the responsibility of the idle task to clean up
     memory allocated by the kernel to any task that has since been deleted. */
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 {
     ( void ) pcTaskName;
@@ -147,19 +157,17 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
     taskDISABLE_INTERRUPTS();
-
-    write( STDOUT_FILENO, "ERROR Stack overflow on func: ", 30 );
-    write( STDOUT_FILENO, pcTaskName, strlen( pcTaskName ) );
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
     _exit(1);
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vApplicationTickHook( void )
 {
     /* The tests in the full demo expect some interaction with interrupts. */
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 void vAssertCalled( void )
 {
     taskDISABLE_INTERRUPTS();

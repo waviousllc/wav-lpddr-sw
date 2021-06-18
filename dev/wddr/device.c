@@ -94,7 +94,6 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
 
     // Initialize entire WDDR device
     wddr_init_reg_if(wddr, base);
-    vInitCompletion(&wddr->fsw_event);
     wddr->table = table;
 
     // Channel Configuration
@@ -301,6 +300,9 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
 
 static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch)
 {
+    wddr_return_t ret = WDDR_SUCCESS;
+    Notification_t notification;
+
     fs_prep_data_t fs_prep_data = {
         .msr = msr,
         .prep_data = {
@@ -310,33 +312,49 @@ static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wdd
         },
     };
 
-    vReInitCompletion(&wddr->fsw_event);
+    // Set blocked task
+    wddr->xHandle = xTaskGetCurrentTaskHandle();
+
+    // Clear Task notifications
+    xTaskNotifyWait( 0, 0, NULL, 0 );
 
     PROPAGATE_ERROR(freq_switch_event_prep(&wddr->fsm.fsw, &fs_prep_data));
 
-    // Ensure FSM is in WAIT_FOR_SWITCH state before performing switch
-    vWaitForCompletion(&wddr->fsw_event);
-    configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_WAIT_FOR_SWITCH);
-    if (wddr->fsm.fsw.fsm.current_state != FS_STATE_WAIT_FOR_SWITCH)
-    {
-        return WDDR_ERROR;
-    }
+    // Wait for notification
+    xTaskNotifyWait(0, 0, &notification, portMAX_DELAY);
 
-    // Perform frequency switch
-    if (sw_switch)
+    do
     {
-        PROPAGATE_ERROR(freq_switch_event_sw_switch(&wddr->fsm.fsw));
-
-        // Wait for switch to complete
-        vWaitForCompletion(&wddr->fsw_event);
-        configASSERT(wddr->fsm.fsw.fsm.current_state == FS_STATE_IDLE);
-        if (wddr->fsm.fsw.fsm.current_state != FS_STATE_IDLE)
+        // Ensure notification is for PREP_DONE
+        if (notification != WDDR_NOTIF_FSW_PREP_DONE)
         {
-            return WDDR_ERROR;
+            ret = WDDR_ERROR;
+            break;
         }
-    }
 
-    return WDDR_SUCCESS;
+        // Perform frequency switch
+        if (sw_switch)
+        {
+            // Clear Task notifications
+            xTaskNotifyWait( 0, 0, NULL, 0 );
+
+            PROPAGATE_ERROR(freq_switch_event_sw_switch(&wddr->fsm.fsw));
+
+            // Wait for notification
+            xTaskNotifyWait(0, 0, &notification, portMAX_DELAY);
+
+            // Ensure notification is for FSW_DONE
+            if (notification != WDDR_NOTIF_FSW_DONE)
+            {
+                ret =  WDDR_ERROR;
+                break;
+            }
+        }
+    } while (0);
+
+    // Clear Task Handle
+    wddr->xHandle = NULL;
+    return ret;
 }
 
 static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
@@ -347,12 +365,41 @@ static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr
 static void notification_handler(Notification_t notification, void *args)
 {
     wddr_dev_t *wddr = (wddr_dev_t *) args;
-    if (notification == WDDR_NOTIF_FSW_PREP_DONE ||
-        notification == WDDR_NOTIF_FSW_DONE ||
-        notification == WDDR_NOTIF_FSW_FAILED)
+
+    // Drop notification
+    if (wddr->xHandle == NULL)
     {
-        vComplete(&wddr->fsw_event);
+        return;
     }
+
+    // Only interested in WDDR Notifications
+    if (notification >= WDDR_NOTIF_END)
+    {
+        return;
+    }
+
+    /**
+     * Notifications should not be overwritten! Multiple notifications
+     * might occur. The notifications after the first will be dropped but
+     * that is okay for this module. Here's why:
+     *
+     * Two scenarios occur where this handler is used:
+     * 1. Prep only (with or without a HW switch)
+     * 2. Prep and Software Switch
+     *
+     * In scenario 2, the software will ensure prep notification occurs, prior
+     * to performing software based switch that would produce the second notification,
+     * which prevents the notification from being dropped.
+     *
+     * In scenario 1, the software will ensure prep notification occurs. If a HW
+     * switch is performed, it might produce the switch done notification before
+     * the prep notification is processed. However, this module is not interested
+     * in the switch notification in that scenario since it's not performing the
+     * switch. It's only interested in the prep notification. Thus, if the notification
+     * is not overwritten, then the prep notification will always be processed.
+     * Simply put, scenario 1 is ONLY concerned with the prep notification.
+     */
+    xTaskNotify(wddr->xHandle, notification, eSetValueWithoutOverwrite);
 }
 
 static void wddr_enable(wddr_dev_t *wddr)
