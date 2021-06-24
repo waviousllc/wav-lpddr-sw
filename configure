@@ -15,7 +15,7 @@ init_build_common() {
 
 init_lpddr() {
   cd ${BUILD_DIR}
-  cmake .. -DCMAKE_TOOLCHAIN_FILE="../rtos/toolchain/riscv32.toolchain" \
+  cmake .. -DCMAKE_TOOLCHAIN_FILE="../rtos/toolchain/riscv.toolchain" \
            -DCONFIG_SRC_ARCH="riscv" \
            -DCONFIG_TARGET_ARCH="riscv32" \
            -DCONFIG_TARGET_BOARD="wavious-mcu" \
