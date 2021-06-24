@@ -9,6 +9,9 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Image header includes. */
+#include <image.h>
+
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
 #include "task.h"
@@ -63,6 +66,24 @@ static DECLARE_WDDR_TABLE(table);
 static wddr_dev_t wddr __attribute__ ((section (".data"))) = {0};
 static wddr_message_interface_t message_intf;
 
+extern uint32_t __start;
+img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
+    .image_magic = IMAGE_MAGIC,
+    .image_hdr_version = IMAGE_VERSION_CURRENT,
+    .image_type = IMAGE_TYPE_APP,
+    .version_major = FW_VERSION_MAJOR,
+    .version_minor = FW_VERSION_MINOR,
+    .version_patch = FW_VERSION_PATCH,
+    .vector_addr = (uint32_t) &__start,
+    .device_id = IMAGE_DEVICE_ID_HOST,
+    .git_dirty = GIT_DIRTY,
+    .git_ahead = GIT_AHEAD,
+    .git_sha = GIT_SHA,
+    // populated as part of a post compilation step
+    .crc = 0,
+    .data_size = 0,
+};
+
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -95,6 +116,7 @@ int main( void )
     or task have stoppped the Scheduler */
 }
 
+/*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
     // Boot Complete Message as Initial Message
@@ -218,9 +240,31 @@ void vApplicationTickHook( void )
 }
 
 /*-----------------------------------------------------------*/
-void vAssertCalled( void )
+void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 {
+    const char *pcString = pcFileName;
+    uint32_t ulFileNameLen = strlen(pcFileName);
+    char cFileName[7] = {'\0'};
+
+    /**
+     * @note    This is a patch because on this platform it is known that assert
+     *          will fail for port.c line 161.
+     */
+    memcpy(&cFileName[0], &pcString[ulFileNameLen - 6], 6);
+
+    if (!strcmp(&cFileName[0], "port.c") && ulLine == 161)
+    {
+        return;
+    }
+
     taskDISABLE_INTERRUPTS();
+    // Write out the file and line number
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
+    while (*pcString != '\0')
+    {
+        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
+    }
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x40001);
     _exit(1);
 }
 

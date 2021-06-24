@@ -13,6 +13,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
     # Build configuration
     include(${CMAKE_CURRENT_LIST_DIR}/CMake.in)
+
+    # Build versioning
+    set(VERSION_UPDATE_FROM_GIT TRUE)
+    find_package(BuildInfo REQUIRED)
+
     add_compile_options(
         -O2
         -g
