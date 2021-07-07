@@ -1,0 +1,38 @@
+Contributing
+============
+
+When contributing to this repository, please begin all interactions by opening
+an issue at:
+
+https://github.com/waviousllc/wav-lpddr-sw/issues
+
+Please follow the guidelines below for contributing to the 'WAV-LPDDR-SW'
+project.
+
+Pull Request
+============
+
+1. Create a feature branch with format 'dev/<username>/<feature> branched
+   from main-staging
+2. Make changes on the feature branch
+3. Push changes to remote end
+4. Open a Pull Request for merging 'dev/<username>/<feature>' branch into
+   main-staging
+5. Request reviews from those in 'MAINTAINERS' file
+6. As changes are requested, modify with 'git comit --amend' and force push back
+   to feature branch
+7. Upon successful review, select 'Rebase and Merge' option to rebase feature
+   changes into main-staging branch
+
+Commit Format
+=============
+
+Commits follow the format below:
+
+Line 1:     [Short Title for Commit]
+Line 2:     <BLANK>
+Line 3:     Fixes:
+Line 4-N:       - <INDENT WITH DESCRIPTION>; Prefix with "-"
+Line N+1:   <BLANK>
+Line N+2:   Features:
+Line N+3-M:     - <INDENT WITH DESCRIPTION>; Prefix with "-"

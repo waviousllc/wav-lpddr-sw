@@ -1,0 +1,80 @@
+/**
+ * Copyright (c) 2021 Wavious LLC.
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ */
+#ifndef _PI_DRIVER_H_
+#define _PI_DRIVER_H_
+
+#include <stdint.h>
+#include <pi/device.h>
+
+/**
+ * @brief   Phase Interpolator Set State Register Interface
+ *
+ * @details Handles setting state of PI device via CSR.
+ *
+ * @param[in]   pi          pointer to Phase Interpolator device.
+ * @param[in]   state       state requested to change to.
+ *
+ * @return      void
+ */
+void pi_set_state_reg_if(pi_dev_t *pi, pi_state_t state);
+
+/**
+ * @brief   Phase Interpolator Set Code Register Interface
+ *
+ * @details Handles setting code of PI device via CSR.
+ *
+ * @param[in]   pi      pointer to Phase Interpolator device.
+ * @param[in]   code    value of code to set.
+ *
+ * @return      void
+ */
+void pi_set_code_reg_if(pi_dev_t *pi, uint8_t code);
+
+/**
+ * @brief   Phase Interpolator Set Gear Register Interface
+ *
+ * @details Handles setting gear of PI device via CSR.
+ *
+ * @param[in]   pi      pointer to Phase Interpolator device.
+ * @param[in]   gear    value of gear to set.
+ *
+ * @return      void
+ */
+void pi_set_gear_reg_if(pi_dev_t *pi, uint8_t gear);
+
+/**
+ * @brief Phase Interpolator Set XCPL Register Interface
+ *
+ * @details Handles setting XCPL of PI device via CSR.
+ *
+ * @param[in]   pi      pointer to Phase Interpolator device.
+ * @param[in]   xcpl    value of gear to set.
+ *
+ * @return      void
+ */
+void pi_set_xcpl_reg_if(pi_dev_t *pi, uint8_t xcpl);
+
+/**
+ * @brief   Phase Interpolator Set Register Interface
+ *
+ * @details Handles setting the entire configuration register of the phase
+ *          interpolator device via CSR.
+ *
+ * @param[in]   pi      pointer to Phase Interpolator device.
+ * @param[in]   code    the code of PI to set.
+ * @param[in]   gear    the gear of PI to set.
+ * @param[in]   xcpl    the xcpl of PI to set.
+ * @param[in]   state       state requested to change to.
+ *
+ * @return      void
+ */
+void pi_set_reg_if(pi_dev_t *pi,
+                   uint8_t code,
+                   uint8_t gear,
+                   uint8_t xcpl,
+                   pi_state_t state);
+
+#endif /* PI_DRIVER_H_ */
