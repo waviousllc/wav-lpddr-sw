@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: GPL-3.0
+ * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 #ifndef _PMON_DEV_H_
 #define _PMON_DEV_H_

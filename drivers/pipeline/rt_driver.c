@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: GPL-3.0
+ * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 #include <pipeline/rt_driver.h>
 #include <kernel/io.h>

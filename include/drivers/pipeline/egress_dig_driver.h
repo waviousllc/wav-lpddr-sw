@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: GPL-3.0
+ * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 #ifndef _PIPELINE_EGRESS_DIG_DRIVER_H_
 #define _PIPELINE_EGRESS_DIG_DRIVER_H_
