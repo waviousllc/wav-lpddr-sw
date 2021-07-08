@@ -134,14 +134,14 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     uint8_t current_vco_id;
 
     // Calibrate all frequencies
-    #ifdef CONFIG_CALIBRATE_PLL
+    #if CONFIG_CALIBRATE_PLL
     for (uint8_t freq_id = 0; freq_id < WDDR_PHY_VALID_FREQ_NUM; freq_id++)
     {
         pll_calibrate_vco(&wddr->pll,
                           &wddr->table->cal.freq[freq_id].pll,
                           &wddr->table->cfg.freq[freq_id].pll);
     }
-    #endif
+    #endif /* CONFIG_CALIBRATE_PLL */
 
     /**
      * @note Override CS / CKE as not sure of state of memory controller
@@ -186,9 +186,9 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
         driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CKE_1, false);
     }
 
-    #ifdef CONFIG_CALIBRATE_ZQCAL
+    #if CONFIG_CALIBRATE_ZQCAL
     PROPAGATE_ERROR(zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal));
-    #endif
+    #endif /* CONFIG_CALIBRATE_ZQCAL */
 
     // Set VREF code
     vref_set_code(&wddr->cmn.vref, wddr->table->cal.freq[WDDR_PHY_BOOT_FREQ].common.vref.code);
@@ -201,7 +201,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
 
         for (uint8_t byte = 0; byte < WDDR_PHY_DQ_BYTE_NUM; byte++)
         {
-            #ifdef CONFIG_CALIBRATE_SA
+            #if CONFIG_CALIBRATE_SA
             rx_gb_cfg_t cfg = {
                 .data_mode = DGB_2TO1_IR,
                 .fifo_mode = FGB_2TO2,
@@ -242,7 +242,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
                     } // Rank loop
                 } // SA Index loop
             } // MSR loop
-            #endif
+            #endif /* CONFIG_CALIBRATE_SA */
         } // DQ Byte loop
 
         // Remove Chip Select Override

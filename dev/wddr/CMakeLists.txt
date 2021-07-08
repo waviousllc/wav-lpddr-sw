@@ -16,20 +16,13 @@ add_library(
     ${SRC}
 )
 
-if (CONFIG_CALIBRATE_PLL)
-    message("PLL Calibration enabled")
-    target_compile_definitions(${LIB_NAME} PRIVATE -DCONFIG_CALIBRATE_PLL)
-endif (CONFIG_CALIBRATE_PLL)
-
-if (CONFIG_CALIBRATE_ZQCAL)
-    message("ZQCAL Calibration enabled")
-    target_compile_definitions(${LIB_NAME} PRIVATE -DCONFIG_CALIBRATE_ZQCAL)
-endif (CONFIG_CALIBRATE_ZQCAL)
-
-if (CONFIG_CALIBRATE_SA)
-    message("SA Calibration enabled")
-    target_compile_definitions(${LIB_NAME} PRIVATE -DCONFIG_CALIBRATE_SA)
-endif (CONFIG_CALIBRATE_SA)
+target_compile_definitions(
+    ${LIB_NAME}
+    PRIVATE
+    -DCONFIG_CALIBRATE_PLL=${CONFIG_CALIBRATE_PLL}
+    -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CALIBRATE_ZQCAL}
+    -DCONFIG_CALIBRATE_SA=${CONFIG_CALIBRATE_SA}
+)
 
 target_include_directories(
     ${LIB_NAME}
