@@ -34,6 +34,7 @@
 #include <wddr/driver.h>
 #include <wddr/memory_map.h>
 #include <wddr/notification_map.h>
+#include <wddr/train.h>
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -84,6 +85,7 @@ static void wddr_iocal_calibrate(void *dev);
 /** @brief  Init Complete Callback. Sends MRWs for next frequency during switch. */
 static void wddr_init_complete_callback(fs_fsm_t *fsm, void *args);
 
+static wddr_return_t wddr_train(wddr_dev_t *wddr);
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -117,6 +119,8 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
 
     // DRAM
     dram_init(&wddr->dram);
+    wddr->dram.cfg = &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram;
+    wddr->dram.cal = &wddr->table->cal.freq[WDDR_PHY_BOOT_FREQ].dram;
 
     // Notification Init
     vInitNotificationEndpoint(&wddr->endpoint, notification_handler, wddr);
@@ -248,6 +252,10 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
         // Remove Chip Select Override
         wddr_set_chip_select_reg_if(wddr, channel, WDDR_RANK_0, false);
     } // Channel loop
+
+    #if CONFIG_DRAM_TRAIN
+    wddr_train(wddr);
+    #endif /* CONFIG_DRAM_TRAIN */
 
     // Prime DFI buffer
     wddr_dfi_buffer_prime(&wddr->dfi.dfi_buffer);
@@ -1886,4 +1894,318 @@ static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr
 
     // DFI Prep
     dfi_freq_switch_prep(&wddr->dfi, msr, &wddr->table->cfg.freq[freq_id].dfi);
+}
+
+static void training_init_datapath(wddr_dev_t *wddr, wddr_freq_ratio_t ratio, uint8_t freq_id)
+{
+    uint8_t channel;
+    uint32_t x_sel = ratio == WDDR_FREQ_RATIO_1TO1 ? 0x76543210 : 0x76543120;
+
+    for (channel = WDDR_CHANNEL_0; channel < WDDR_CHANNEL_TOTAL; channel++)
+    {
+        // LPDEs
+        // Turn off CA LPDE Delay
+        for (uint8_t bit_index = 0; bit_index < WDDR_PHY_CA_SLICE_NUM; bit_index++)
+        {
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ca.lpde[bit_index].delay = 0x0;
+        }
+
+        // Turn off CK LPDE Delay
+        for (uint8_t bit_index = 0; bit_index < WDDR_PHY_CK_SLICE_NUM; bit_index++)
+        {
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ck.lpde[bit_index].delay = 0x0;
+        }
+
+        // Turn off LPDE for DQS
+        for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQS_TXRX_SLICE_NUM; bit_index++)
+        {
+            wddr->table->cal.freq[freq_id].channel[channel].dq[WDDR_DQ_BYTE_0].tx.rank[WDDR_RANK_0].dqs.lpde[bit_index].delay = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].dq[WDDR_DQ_BYTE_1].tx.rank[WDDR_RANK_0].dqs.lpde[bit_index].delay = 0x0;
+        }
+
+        // Turn off LPDE for DQ
+        for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
+        {
+            wddr->table->cal.freq[freq_id].channel[channel].dq[WDDR_DQ_BYTE_0].tx.rank[WDDR_RANK_0].dq.lpde[bit_index].delay = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].dq[WDDR_DQ_BYTE_1].tx.rank[WDDR_RANK_0].dq.lpde[bit_index].delay = 0x0;
+        }
+
+        for (uint8_t dq_block = 0; dq_block < WDDR_DQ_BYTE_TOTAL; dq_block++)
+        {
+            //  REN PI
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].rx.rank[WDDR_RANK_0].dqs.pi.ren.code = 0x0;
+
+            //  RCS PI
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].rx.rank[WDDR_RANK_0].dqs.pi.rcs.code = 0x0;
+
+            // DQS PI needs to be zero
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dqs.pi.ddr.code = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dqs.pi.qdr.code = 0x0;
+
+            // DQ PI needs to be zero
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dq.pi.ddr.code = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dq.pi.qdr.code = 0x0;
+
+            // PIs
+            // Turn off any CK PI DDR Delay
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ck.pi.ddr.code = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ck.pi.qdr.code = 0x0;
+
+            // Turn off any CA PI DDR Delay
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ca.pi.ddr.code = 0x0;
+            wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[WDDR_RANK_0].ca.pi.qdr.code = 0x0;
+
+            pipeline_bit_cal_t *dp_cal = wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dqs.pipeline;
+            for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQS_SLICE_NUM; bit_index++)
+            {
+                dp_cal[bit_index].sdr.fc_delay = 0x0;
+                dp_cal[bit_index].sdr.pipe_en = 0x0;
+                dp_cal[bit_index].sdr.x_sel = x_sel;
+                dp_cal[bit_index].ddr.x_sel = 0x3210;
+                dp_cal[bit_index].ddr.pipe_en = 0x0;
+            }
+
+            // All DQ bits share same configuration
+            dp_cal = &wddr->table->cal.freq[freq_id].channel[channel].dq[dq_block].tx.rank[WDDR_RANK_0].dq.pipeline;
+            dp_cal->sdr.fc_delay = 0x0;
+            dp_cal->sdr.pipe_en = 0x0;
+            dp_cal->sdr.x_sel = x_sel;
+            dp_cal->ddr.x_sel = 0x3210;
+            dp_cal->ddr.pipe_en = 0x0;
+        }
+    }
+}
+
+/** Setup for Training */
+static void wddr_train_setup(wddr_dev_t *wddr)
+{
+    uint32_t reg_val;
+    uint8_t curr_freq_id;
+
+    // Force CS low
+
+    // Override CS TX Drivers and force low while booting DRAM
+    for (uint8_t channel = WDDR_CHANNEL_0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
+    {
+        driver_cfg_t cfg =
+        {
+            .tx_impd = DRIVER_IMPEDANCE_240,
+            .rx_impd = DRIVER_IMPEDANCE_HIZ,
+            .override.sel = DRIVER_IMPEDANCE_240,
+            .override.val_t = 0,
+            .override.val_c = 0,
+        };
+        driver_override(&wddr->channel[channel].ca.tx.ca.driver, &cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_0, true);
+        driver_override(&wddr->channel[channel].ca.tx.ca.driver, &cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_1, true);
+    }
+
+    // Boot DRAM (force RESET_N high)
+    wddr_set_dram_resetn_pin_reg_if(wddr, true, true);
+    dram_idle(&wddr->dram, &wddr->dfi.dfi_buffer);
+
+    pll_fsm_get_current_freq(&wddr->fsm.pll, &curr_freq_id);
+
+    // Release override of CS TX Drivers
+    for (uint8_t channel = WDDR_CHANNEL_0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
+    {
+        driver_cfg_t *cfg = &wddr->table->cfg.freq[curr_freq_id].channel[channel].ca.tx.rank_cmn.ca.driver;
+        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_0, false);
+        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_1, false);
+    }
+
+    // Disable Channel 1 DQ bytes
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x1);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+    // Disable Channel 1 CA byte
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CA_TOP_CFG_TRAINING_MODE, 0x1);
+    reg_write(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR, reg_val);
+}
+
+/** Teardown for Training */
+static void wddr_train_teardown(wddr_dev_t *wddr)
+{
+    uint32_t reg_val;
+
+    // Power down DRAM (force RESET_N low; then back to normal state)
+    dram_power_down(&wddr->dram, &wddr->dfi.dfi_buffer);
+
+    wddr_set_dram_resetn_pin_reg_if(wddr, true, false);
+    wddr_set_dram_resetn_pin_reg_if(wddr, false, false);
+
+    dfi_buffer_disable(&wddr->dfi.dfi_buffer);
+
+    // Enable Channel 1 DQ bytes
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x0);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+    // Enable Channel 1 CA byte
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CA_TOP_CFG_TRAINING_MODE, 0x0);
+    reg_write(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR, reg_val);
+}
+
+static wddr_return_t wddr_train(wddr_dev_t *wddr)
+{
+    uint32_t reg_val;
+    wddr_return_t ret = WDDR_SUCCESS;
+    uint8_t curr_train_freq = WDDR_PHY_BOOT_FREQ;
+    bit_array_t *result = (bit_array_t *) pvPortMalloc(sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+    if (result == NULL)
+    {
+        return WDDR_ERROR;
+    }
+
+    wddr_train_setup(wddr);
+
+    do
+    {
+        if (!wddr->table->valid[curr_train_freq])
+        {
+            continue;
+        }
+
+        // Init datapath for training
+        training_init_datapath(wddr, wddr->table->cfg.freq[curr_train_freq].dram.ratio, curr_train_freq);
+
+        // Adjust table for Pad Enable Phase Extension
+        // TODO: Somewhere else??
+        wddr->table->cfg.freq[curr_train_freq].dfi.paden_pext.rd.fields.ie =
+            paden_pext_table[curr_train_freq].ie;
+        wddr->table->cfg.freq[curr_train_freq].dfi.paden_pext.rd.fields.re =
+            paden_pext_table[curr_train_freq].re;
+
+        /*
+        * ===========================================
+        *             CBT Training
+        * ===========================================
+        */
+        // Clear results
+        memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+
+        command_bus_training(wddr, WDDR_CHANNEL_0, curr_train_freq, result);
+
+        // Train each byte independently for data path
+        for (uint8_t dq_byte = 0; dq_byte < WDDR_PHY_DQ_BYTE_NUM; dq_byte++)
+        {
+            // Only DQ0 or DQ1 are training (DQ2 / DQ3 are tied to Channel 1 which isn't supported yet)
+            if (dq_byte == WDDR_DQ_BYTE_0)
+            {
+                // Force Read Valid
+                reg_val = reg_read(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_DQBYTE_RDVALID_MASK, 0xE);
+                reg_write(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+
+                // Training Mode ON on DQ BYTE 1
+                reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x1);
+                reg_write(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+                // Training Mode OFF on DQ Byte 0
+                reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x0);
+                reg_write(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+            }
+            else
+            {
+                // Force Read Valid
+                reg_val = reg_read(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_DQBYTE_RDVALID_MASK, 0xD);
+                reg_write(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+
+                // Training Mode ON on DQ Byte 0
+                reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x1);
+                reg_write(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+                // Training Mode OFF on DQ Byte 1
+                reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR);
+                reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x0);
+                reg_write(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+            }
+
+            /*
+            * ===========================================
+            *            Read DQ Training
+            * ===========================================
+            */
+
+            // BOTH sides together
+            // Clear results and initialize ranges
+            memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+
+            read_dq_training(wddr, REC_BOTH_SIDE_MASK, WDDR_CHANNEL_0, dq_byte, curr_train_freq, result);
+
+            /*
+            * ===========================================
+            *            Write Level Training
+            * ===========================================
+            */
+            memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+            write_level_training(wddr, WDDR_CHANNEL_0, dq_byte, curr_train_freq, result);
+
+            /*
+            * ===========================================
+            *            REN Training
+            * ===========================================
+            */
+
+            // Clear results and initialize ranges
+            memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+            ren_training(wddr, WDDR_CHANNEL_0, dq_byte, curr_train_freq, result);
+
+            /*
+            * ===========================================
+            *         DQ / DQS Training
+            * ===========================================
+            */
+            // Clear results and initialize ranges
+            memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+
+            dq_dqs_training(wddr, WDDR_CHANNEL_0, dq_byte, curr_train_freq, result);
+        }
+
+        /*
+        * ===========================================
+        *    Read Window Training (for both Bytes)
+        * ===========================================
+        */
+        // Clear results; Ranges aren't needed
+        memset(result, 0, sizeof(bit_array_t) * TRAINING_RESULT_ROW_NUM);
+        read_window_training(wddr, WDDR_CHANNEL_0, curr_train_freq, result);
+
+        // Training Mode OFF on DQ BYTE 1
+        reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR);
+        reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x0);
+        reg_write(WDDR_MEMORY_MAP_CH0_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+        // Training Mode OFF on DQ Byte 0
+        reg_val = reg_read(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+        reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x0);
+        reg_write(WDDR_MEMORY_MAP_CH0_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+        // Only DQ0 or DQ1 are training (DQ2 / DQ3 are tied to Channel 1 which isn't supported yet)
+        reg_val = reg_read(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR);
+        reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_DQBYTE_RDVALID_MASK, 0xC);
+        reg_write(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+
+        // Verify that Training worked. Exit if not.
+        if (baseline_write_read(wddr, curr_train_freq))
+        {
+            ret = WDDR_ERROR;
+            break;
+        }
+
+        curr_train_freq++;
+    }
+    while(curr_train_freq < WDDR_PHY_FREQ_NUM);
+
+    // Teardown training setup before exiting
+    wddr_train_teardown(wddr);
+
+    vPortFree(result);
+    return ret;
 }

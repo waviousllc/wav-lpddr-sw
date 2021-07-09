@@ -2,6 +2,11 @@ set(LIB_NAME wddr)
 set(
     SRC
     ${CMAKE_CURRENT_LIST_DIR}/device.c
+    ${CMAKE_CURRENT_LIST_DIR}/train/common.c
+    ${CMAKE_CURRENT_LIST_DIR}/train/command_bus.c
+    ${CMAKE_CURRENT_LIST_DIR}/train/read.c
+    ${CMAKE_CURRENT_LIST_DIR}/train/write.c
+    ${CMAKE_CURRENT_LIST_DIR}/train/eye_algo.c
 )
 
 set(
@@ -22,6 +27,7 @@ target_compile_definitions(
     -DCONFIG_CALIBRATE_PLL=${CONFIG_CALIBRATE_PLL}
     -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CALIBRATE_ZQCAL}
     -DCONFIG_CALIBRATE_SA=${CONFIG_CALIBRATE_SA}
+    -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN}
 )
 
 target_include_directories(

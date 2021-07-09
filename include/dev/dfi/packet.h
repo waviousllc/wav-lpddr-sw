@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <compiler.h>
 #include <dfi/command.h>
+#include <dram/table.h>
 #include <kernel/list.h>
 
 #define PACKET_BUFFER_DEPTH         (32)
@@ -577,4 +578,130 @@ wddr_return_t create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
                                         uint8_t mode_register,
                                         uint8_t op,
                                         uint16_t time_offset);
+
+/**
+ * @brief   Create Command Bus Training Packet Sequence
+ *
+ * @details Creates a set of packets in order to send the necessary DRAM signals
+ *          specifying VREF setting to use and command address and clock signals
+ *          during command bus training.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   dram_cfg        config used to send CBT packets to DRAM.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   vref_setting    VREF value to send via DQ bits during CBT.
+ * @param[in]   command_address command address value used to train.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_cbt_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                          dram_freq_cfg_t *dram_cfg,
+                                          chipselect_t cs,
+                                          uint8_t vref_setting,
+                                          uint8_t command_address,
+                                          uint16_t time_offset);
+
+/**
+ * @brief   Create Write Level Training Packet Sequence
+ *
+ * @details Creates a set of packets in order to send the specified Write
+ *          Level Training sequence to the DRAM.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   ratio           ratio of DFI CK to DRAM CK.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_wrlvl_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                           wddr_freq_ratio_t ratio,
+                                           chipselect_t cs,
+                                           uint16_t time_offset);
+
+/**
+ * @brief   Create Read DQ Calibration Training Packet Sequence
+ *
+ * @details Creates a set of packets in order to send the Read DQ Calibration
+ *          Training sequence to the DRAM.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   burst_length    data burst length of the DRAM.
+ * @param[in]   ratio           ratio of DFI CK to DRAM CK.
+ * @param[in]   phy_rd_en       read enable delay value to be used.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_rddq_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                          burst_length_t burst_length,
+                                          uint8_t ratio,
+                                          uint8_t phy_rd_en,
+                                          chipselect_t cs,
+                                          uint16_t time_offset);
+
+/**
+ * @brief   Create Write FIFO Packet Sequence
+ *
+ * @details Creates a set of packets in order to write data into the DRAM
+ *          FIFO for reading without disrupting array contents.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   data            pointer to command data structure to send.
+ * @param[in]   burst_length    data burst length of the DRAM.
+ * @param[in]   dram_cfg        config used to send CBT packets to DRAM.
+ * @param[in]   wr_offset       read enable delay value to be used.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_wrfifo_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                            command_data_t *data,
+                                            burst_length_t burst_length,
+                                            dram_freq_cfg_t *dram_cfg,
+                                            uint8_t wr_offset,
+                                            chipselect_t cs,
+                                            uint16_t time_offset);
+
+/**
+ * @brief   Create Read FIFO Packet Sequence
+ *
+ * @details Creates a set of packets in order to read data from the DRAM
+ *          FIFO.
+ *
+ * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   burst_length    data burst length of the DRAM.
+ * @param[in]   ratio           ratio of DFI CK to DRAM CK.
+ * @param[in]   phy_rd_en       read enable delay value to be used.
+ * @param[in]   cs              chipselect value.
+ * @param[in]   time_offset     time offset from previous packet that the packet
+ *                              should be sent.
+ *
+ * @return      returns whether packet added to the packet buffer.
+ * @retval      WDDR_SUCCESS if added.
+ * @retval      WDDR_ERROR otherwise.
+ */
+wddr_return_t create_rdfifo_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                            burst_length_t burst_length,
+                                            uint8_t ratio,
+                                            uint8_t phy_rd_en,
+                                            chipselect_t cs,
+                                            uint16_t time_offset);
+
+
 #endif /* _DFI_PACKET_H_ */
