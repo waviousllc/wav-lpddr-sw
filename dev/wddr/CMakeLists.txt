@@ -22,12 +22,18 @@ target_compile_definitions(
     -DCONFIG_CALIBRATE_PLL=${CONFIG_CALIBRATE_PLL}
     -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CALIBRATE_ZQCAL}
     -DCONFIG_CALIBRATE_SA=${CONFIG_CALIBRATE_SA}
+    -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN}
 )
 
 target_include_directories(
     ${LIB_NAME}
     PUBLIC
     ${INCLUDE}
+)
+
+add_library(
+    wddr_ext
+    INTERFACE
 )
 
 target_link_libraries(
@@ -41,4 +47,5 @@ target_link_libraries(
     dfi
     pll
     dram
+    wddr_ext
 )

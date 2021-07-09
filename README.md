@@ -74,6 +74,7 @@ make
 | CONFIG_CALIBRATE_PLL     |    true        | Enables PLL calibration at boot       |
 | CONFIG_CALIBRATE_ZQCAL   |    true        | Enables ZQCAL calibration at boot     |
 | CONFIG_CALIBRATE_SA      |    true        | Enables Sense Amp calibration at boot |
+| CONFIG_DRAM_TRAIN        |    true        | Enables DRAM Training at boot         |
 
 #### Changing Configurations
 It is recommended that all binaries are built with the default configuration. However,
@@ -84,8 +85,22 @@ After running the commands given in the [Building](#building) section of this do
 the configuration can be updated as follows:
 ~~~~
 cd build
-cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false>
+cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false>
 make
 ~~~~
 
 The generic command: `cmake .. -D<CMAKE_VARIABLE_NAME>=<VAL>`
+
+### Adding Extended Functionality to Builds
+In order to allow for extended capabilites not required for PHY functionality
+(such as training), an interface library was added to the WDDR device, named
+wddr_ext. In order to utilize this library, you can add additional source and
+include files to this library to be included when building the WDDR device
+library. This will enable external functions to be added to the build to
+override weak functions within the WDDR device (such as wddr_train).
+
+## DRAM Training
+Currently, the WDDR device includes the necessary hooks to perform DRAM training
+during boot of the PHY, but the algorithms are not included in this release.
+These algorithms can be added using the wddr_ext interface library. If training
+is a requirement of your application, contact Wavious for support.

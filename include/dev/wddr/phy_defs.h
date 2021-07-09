@@ -6,6 +6,10 @@
 #ifndef _WDDR_PHY_DEFS_H_
 #define _WDDR_PHY_DEFS_H_
 
+#define WDDR_PHY_FREQ_RATIO_1TO1 (0)
+#define WDDR_PHY_FREQ_RATIO_1TO2 (1)
+#define WDDR_PHY_FREQ_RATIO_1TO4 (2)
+
 /**
  * @brief   WDDR PHY Channel Index Enuemrations
  *
@@ -169,15 +173,15 @@ typedef enum wddr_msr_t
  *
  * @details DFI frequency to DRAM frequency ratio.
  *
- * 1TO1     DRAM tCK = 1 * DFI tCK
- * 1TO2     DRAM tCK = 2 * DFI tCK
- * 1TO4     DRAM tCK = 4 * DFI tCK
+ * 1TO1     1 DRAM tCK = (1 << 0) DFI tCK
+ * 1TO2     1 DRAM tCK = (1 << 1) DFI tCK
+ * 1TO4     1 DRAM tCK = (1 << 2) DFI tCK
  */
 typedef enum wddr_freq_ratio_t
 {
-    WDDR_FREQ_RATIO_1TO1 = 0,
-    WDDR_FREQ_RATIO_1TO2 = 1,
-    WDDR_FREQ_RATIO_1TO4 = 2,
+    WDDR_FREQ_RATIO_1TO1 = WDDR_PHY_FREQ_RATIO_1TO1,
+    WDDR_FREQ_RATIO_1TO2 = WDDR_PHY_FREQ_RATIO_1TO2,
+    WDDR_FREQ_RATIO_1TO4 = WDDR_PHY_FREQ_RATIO_1TO4,
 } wddr_freq_ratio_t;
 
 #endif /* _WDDR_PHY_DEFS_H_ */
