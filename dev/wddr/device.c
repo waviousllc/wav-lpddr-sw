@@ -38,7 +38,7 @@
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-packet_item_t packets[20] __attribute__ ((section (".data"))) = {0};
+packet_item_t packets[56] __attribute__ ((section (".data"))) = {0};
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
@@ -67,7 +67,10 @@ static void wddr_dfi_buffer_flush(dfi_buffer_dev_t *dfi_buffer);
 static void wddr_dfi_buffer_prime(dfi_buffer_dev_t *dfi_buffer);
 
 /** @brief  Internal Function to prepare MRW updates for frequency switch */
-static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_freq_cfg_t *cfg);
+static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
+                                             dfi_buffer_dev_t *dfi_buffer,
+                                             dram_freq_cfg_t *dram_cfg,
+                                             dram_freq_cal_t *dram_cal);
 
 /** @brief  Internal Function to clear FIFO for all channels */
 static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr);
@@ -84,6 +87,9 @@ static void wddr_iocal_calibrate(void *dev);
 /** @brief  Init Complete Callback. Sends MRWs for next frequency during switch. */
 static void wddr_init_complete_callback(fs_fsm_t *fsm, void *args);
 
+/** @brief  Internal weak declaration of WDDR Training Function */
+__attribute__(( weak ))
+wddr_return_t wddr_train(wddr_dev_t *wddr);
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -116,7 +122,9 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
     dfi_init(&wddr->dfi, WDDR_MEMORY_MAP_DFI_CH0);
 
     // DRAM
-    dram_init(&wddr->dram);
+    dram_init(&wddr->dram,
+              &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram,
+              &wddr->table->cal.freq[WDDR_PHY_BOOT_FREQ].dram);
 
     // Notification Init
     vInitNotificationEndpoint(&wddr->endpoint, notification_handler, wddr);
@@ -249,6 +257,10 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
         wddr_set_chip_select_reg_if(wddr, channel, WDDR_RANK_0, false);
     } // Channel loop
 
+    #if CONFIG_DRAM_TRAIN
+    wddr_train(wddr);
+    #endif /* CONFIG_DRAM_TRAIN */
+
     // Prime DFI buffer
     wddr_dfi_buffer_prime(&wddr->dfi.dfi_buffer);
     wddr_clear_fifo_all_channels(wddr);
@@ -289,8 +301,10 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
     wddr_configure_phy(wddr, freq_id, next_msr);
 
     // Prepare MRW sequence in DFI Buffer
-    wddr_prep_freq_switch_mrw_update(&wddr->dfi.dfi_buffer,
-                                     &wddr->table->cfg.freq[freq_id].dram);
+    wddr_prep_freq_switch_mrw_update(wddr,
+                                     &wddr->dfi.dfi_buffer,
+                                     &wddr->table->cfg.freq[freq_id].dram,
+                                     &wddr->table->cal.freq[freq_id].dram);
 
     // Prep PLL for a switch
     PROPAGATE_ERROR(wddr_freq_switch_prv(wddr, freq_id, next_msr, false));
@@ -483,12 +497,15 @@ static void wddr_dfi_buffer_prime(dfi_buffer_dev_t *dfi_buffer)
     dfi_buffer_disable(dfi_buffer);
 }
 
-static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_freq_cfg_t *cfg)
+static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
+                                             dfi_buffer_dev_t *dfi_buffer,
+                                             dram_freq_cfg_t *dram_cfg,
+                                             dram_freq_cal_t *dram_cal)
 {
     dfi_tx_packet_buffer_t packet_buffer;
     packet_storage_t storage = {
         .packets = packets,
-        .len = 20,
+        .len = 56,
         .index = 0,
     };
 
@@ -507,17 +524,7 @@ static void wddr_prep_freq_switch_mrw_update(dfi_buffer_dev_t *dfi_buffer, dram_
         }
     }
 
-    create_cke_packet_sequence(&packet_buffer, 1);
-
-    for (uint8_t rank = CS_0; rank < WDDR_PHY_RANK; rank++)
-    {
-        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x01, cfg->mr1, 10);
-        create_cke_packet_sequence(&packet_buffer, 1);
-        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x02, cfg->mr2, 10);
-        create_cke_packet_sequence(&packet_buffer, 1);
-        create_mrw_packet_sequence(&packet_buffer, cfg->ratio, rank, 0x0B, cfg->mr11, 10);
-        create_cke_packet_sequence(&packet_buffer, 1);
-    }
+    dram_prepare_mrw_update(&wddr->dram, &packet_buffer, dram_cfg, dram_cal);
 
     // Prefill packets
     dfi_buffer_fill_packets(dfi_buffer, &packet_buffer.list);
@@ -1886,4 +1893,10 @@ static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr
 
     // DFI Prep
     dfi_freq_switch_prep(&wddr->dfi, msr, &wddr->table->cfg.freq[freq_id].dfi);
+}
+
+wddr_return_t wddr_train(wddr_dev_t *wddr)
+{
+    // This must be implemented in an external function.
+    return WDDR_SUCCESS;
 }

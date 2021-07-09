@@ -101,6 +101,13 @@ void dfi_buffer_send_packets_non_blocking_reg_if(dfi_buffer_dev_t *dfi_buffer)
         reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_STA__ADR);
     } while (GET_REG_FIELD(reg_val, DDR_DFICH_TOP_STA_IG_STATE) != DFI_FIFO_STATE_EMPTY);
 
+    // Need to clear interrupt to ensure it doesn't fire early when using blocking method
+    /** NOTE: Only CH0 is enabled */
+    reg_val = FAST_IRQ_STICKY_MASK(DDR_IRQ_CH0_IBUF_EMPTY) |
+              FAST_IRQ_STICKY_MASK(DDR_IRQ_CH0_IBUF_FULL);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, reg_val);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, 0x0);
+
     // Disable Timestamp comparison logic
     reg_val = reg_read(dfi_buffer->base + DDR_DFICH_TOP_1_CFG__ADR);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_TS_ENABLE, 0x0);

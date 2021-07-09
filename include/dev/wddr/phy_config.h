@@ -19,5 +19,6 @@
 #define WDDR_PHY_CK_TXRX_SLICE_NUM          (1)
 #define WDDR_PHY_DQ_BYTE_NUM                (WDDR_DQ_BYTE_TOTAL)
 #define WDDR_PHY_CHANNEL_NUM                (WDDR_CHANNEL_TOTAL)
+#define WDDR_PHY_MAX_FREQ_RATIO             (WDDR_PHY_FREQ_RATIO_1TO2)
 
 #endif /* _WDDR_PHY_CONFIG_H_ */
