@@ -56,10 +56,10 @@
 #define MESSENGER_ACK_INTERRUPT_MSK (1 << MCU_FAST_IRQ_PHY2HOST_ACK)
 
 // Task priority least to greatest
-#define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 3)
-#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
-#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
-#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
+#define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 6)
+#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 5)
+#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 4)
+#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 3)
 
 // Event Queues
 #define MESSENGER_TASK_QUEUE_LEN    (1)     // only 1 outstanding message at a time
