@@ -16,9 +16,6 @@
 #include <dfi/driver.h>
 #include <fsw/driver.h>
 
-// Timer is 1ms minimum, add 1 extra tick to ensure > 1ms
-#define WD_TIMER_PERIOD ( pdMS_TO_TICKS( 1 ) + 1 )
-
 /** @brief  Guard Function for Frequency Switch PREP_SWITCH state */
 static bool freq_switch_prep_guard(fsm_t *fsm, void *data);
 
@@ -61,9 +58,6 @@ static void handle_phy_init_complete(int irq_num, void *args);
 /** @brief  Callback function for PLL state change events */
 static void pll_state_change_cb(fsm_t *pll_fsm, uint8_t state, void *args);
 
-/** @brief  Watchdog Timer Handler for all timeout events */
-static void watchdog_expired_handler(TimerHandle_t handle);
-
 /** @brief  Table specifying state, guard, and exit functions for all states */
 static const state_func_t state_table[] =
 {
@@ -88,13 +82,6 @@ void freq_switch_fsm_init(fs_fsm_t *fsm, pll_fsm_t *pll_fsm)
     // Default to SW Switch Only FSM Functionality
     fsm->hw_switch_only = false;
 
-    // Connect Watchdog timer callback
-    fsm->timer = xTimerCreate("FsFsmWd",
-                              WD_TIMER_PERIOD,
-                              pdFALSE,
-                              (void *) fsm,
-                              watchdog_expired_handler);
-
     // Connect callback to PLL FSM
     fsm_register_state_change_callback(pll_fsm, pll_state_change_cb, fsm);
 
@@ -114,12 +101,6 @@ wddr_return_t freq_switch_event_prep(fs_fsm_t *fsm, fs_prep_data_t *prep_data)
     if (!freq_switch_prep_guard(&fsm->fsm, NULL))
     {
         return WDDR_ERROR;
-    }
-
-    // Stop timer if started
-    if (xTimerIsTimerActive(fsm->timer))
-    {
-        xTimerStop(fsm->timer, 0);
     }
 
     // Call into FSM
@@ -213,17 +194,8 @@ static void freq_switch_state_fail(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
     vSendNotification(WDDR_NOTIF_FSW_FAILED);
 }
 
-static void freq_switch_state_wait_for_switch(fsm_t *fsm, void *data)
+static void freq_switch_state_wait_for_switch(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
 {
-    // INIT_COMPLETE or Set Event needs to be called
-    fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
-
-    if (xTimerReset(fs_fsm->timer, 0) == pdFALSE)
-    {
-        fsm_handle_internal_event(fsm, FS_STATE_FAIL, NULL);
-        return;
-    }
-
     // Turn on INIT_START interrupt
     enable_irq(MCU_FAST_IRQ_INIT_START);
 }
@@ -232,11 +204,7 @@ static void freq_switch_state_switch(fsm_t *fsm, void *data)
 {
     uint8_t msr;
     uint8_t next_vco_id;
-    fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
     pll_fsm_t *pll_fsm = (pll_fsm_t *) (fsm->instance);
-
-    // Cancel Watchdog Timer
-    xTimerStop(fs_fsm->timer, 0);
 
     pll_fsm_get_next_vco_id(pll_fsm, &next_vco_id);
     if (next_vco_id == UNDEFINED_VCO_ID)
@@ -303,23 +271,13 @@ static void freq_switch_state_post_switch(fsm_t *fsm, __UNUSED__ void *data)
 
 static void freq_switch_state_wait_for_lock(fsm_t *fsm, void *data)
 {
-    fs_fsm_t *fs_fsm = (fs_fsm_t *) data;
     pll_fsm_t *pll_fsm = (pll_fsm_t *) (fsm->instance);
 
     // If PLL already locked, go to post switch (only happens for SW switch)
     if (pll_fsm->current_state == PLL_STATE_LOCKED)
     {
-        // Cancel Watchdog Timer
-        xTimerStop(fs_fsm->timer, 0);
-
         fsm_handle_internal_event(fsm, FS_STATE_POST_SWITCH, NULL);
         return;
-    }
-
-    // Start timer
-    if (xTimerReset(fs_fsm->timer, 0) == pdFALSE)
-    {
-        fsm_handle_internal_event(fsm, FS_STATE_FAIL, NULL);
     }
 
     // Let PLL know that HW switch happened
@@ -410,9 +368,6 @@ static void pll_state_change_cb(__UNUSED__ fsm_t *pll_fsm, uint8_t state, void *
     if (state == PLL_STATE_LOCKED &&
         fs_fsm->fsm.current_state == FS_STATE_WAIT_FOR_LOCK)
     {
-        // Cancel Watchdog Timerr
-        xTimerStop(fs_fsm->timer, 0);
-
         // State Transition
         fsm_handle_external_event(&fs_fsm->fsm, FS_STATE_POST_SWITCH, NULL);
     }
@@ -439,16 +394,4 @@ static void pll_state_change_cb(__UNUSED__ fsm_t *pll_fsm, uint8_t state, void *
     {
         fsm_handle_external_event(&fs_fsm->fsm, FS_STATE_FAIL, NULL);
     }
-}
-
-static void watchdog_expired_handler(TimerHandle_t handle)
-{
-    fs_fsm_t *fsm = (fs_fsm_t *) pvTimerGetTimerID(handle);
-
-    // Disable interrupts
-    disable_irq(MCU_FAST_IRQ_INIT_START);
-    disable_irq(MCU_FAST_IRQ_INIT_COMPLETE);
-
-    // Error
-    fsm_handle_external_event(&fsm->fsm, FS_STATE_FAIL, NULL);
 }

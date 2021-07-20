@@ -105,12 +105,10 @@ typedef struct dfi_master_req_t
  * @brief   DFI Master FSM Structure
  *
  * fsm      underlying generic FSM structure.
- * timer    Watchdog timer handle.
  */
 typedef struct dfi_master_fsm_t
 {
     fsm_t           fsm;
-    TimerHandle_t   timer;
 } dfi_master_fsm_t;
 
 /**

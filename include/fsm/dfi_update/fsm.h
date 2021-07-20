@@ -67,7 +67,6 @@ typedef enum dfi_phyupd_type_t
  * @brief   DFI Update FSM Stucture
  *
  * fsm                      Underlying FSM instance.
- * timer                    Watchdog timer.
  * intf.iocal_update_phy    Function that will update IOCAL values in the PHY.
  * intf.iocal_calibrate     Function that will perform IOCAL calibration.
  * intf.dev                 Generic pointer to IOCAL callback data.
@@ -75,7 +74,6 @@ typedef enum dfi_phyupd_type_t
 typedef struct dfi_update_fsm_t
 {
     fsm_t               fsm;
-    TimerHandle_t       timer;
     struct
     {
         iocal_update_phy_fn_t   iocal_update_phy;

@@ -6,9 +6,6 @@
 #include <dfi_master/fsm.h>
 #include <compiler.h>
 
-// Timer is 1ms minimum, add 1 extra tick to ensure > 1ms
-#define WD_TIMER_PERIOD     ( pdMS_TO_TICKS( 1 ) + 1 )
-
 /** @brief  DFI Master State Handler for IDLE state */
 static void dfi_master_state_idle(fsm_t *fsm, void *data);
 
@@ -27,9 +24,6 @@ static void dfi_master_state_exit(fsm_t *fsm, void *data);
 /** @brief  IRQ Handler for all phymstr ACK events */
 static void handle_dfi_phymstr_ack(int irq_num, void *args);
 
-/** @brief  Watchdog Timer Handler for all timeout events */
-static void watchdog_expired_handler(TimerHandle_t handle);
-
 /** @brief  Table specifying state, guard, and exit functions for all states */
 static const state_func_t state_table[] =
 {
@@ -44,12 +38,6 @@ static const state_func_t state_table[] =
 void dfi_master_fsm_init(dfi_master_fsm_t *fsm)
 {
     fsm_init(&fsm->fsm, fsm, state_table);
-
-    fsm->timer = xTimerCreate("MstrFsmWd",
-                              WD_TIMER_PERIOD,
-                              pdFALSE,
-                              (void *) fsm,
-                              watchdog_expired_handler);
 
     // Register interrupt handler
     request_irq(MCU_FAST_IRQ_PHYMSTR_ACK, handle_dfi_phymstr_ack, fsm);
@@ -94,25 +82,14 @@ static void dfi_master_state_idle(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
     // Do Nothing
 }
 
-static void dfi_master_state_wait(fsm_t *fsm, __UNUSED__ void *data)
+static void dfi_master_state_wait(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
 {
-    // Get actual state machine
-    dfi_master_fsm_t *master_fsm = (dfi_master_fsm_t *) fsm->instance;
-
-    // Schedule WD timer
-    if (xTimerReset(master_fsm->timer, 0) == pdFALSE)
-    {
-        fsm_handle_external_event(fsm, DFI_MASTER_STATE_EXIT, NULL);
-    }
-
     enable_irq(MCU_FAST_IRQ_PHYMSTR_ACK);
 }
 
-static void dfi_master_state_master(fsm_t *fsm, __UNUSED__ void *data)
+static void dfi_master_state_master(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
 {
-    // Cancel timer
-    dfi_master_fsm_t *master_fsm = (dfi_master_fsm_t *) fsm->instance;
-    xTimerStop(master_fsm->timer, 0);
+    // Do Nothing
 }
 
 static void dfi_master_state_req(fsm_t *fsm, void *data)
@@ -179,11 +156,4 @@ static void handle_dfi_phymstr_ack(__UNUSED__ int irq_num, void *args)
 
     // PHYMSTR ACK recieved, move to MASTER state
     fsm_handle_interrupt_event(&fsm->fsm, DFI_MASTER_STATE_MASTER, NULL);
-}
-
-static void watchdog_expired_handler(TimerHandle_t handle)
-{
-    dfi_master_fsm_t *fsm = (dfi_master_fsm_t *) pvTimerGetTimerID(handle);
-    // Exit Master since expired
-    fsm_handle_external_event(&fsm->fsm, DFI_MASTER_STATE_EXIT, NULL);
 }

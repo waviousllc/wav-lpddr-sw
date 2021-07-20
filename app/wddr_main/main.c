@@ -59,10 +59,14 @@
 #define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
 #define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
 #define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
+#define TIMER_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
 
 // Event Queues
 #define MESSENGER_TASK_QUEUE_LEN    (1)     // only 1 outstanding message at a time
 #define FSM_TASK_QUEUE_LEN          (20)    // 20 FSM events oustanding at a time
+
+// Watchdog Timer (3 ms)
+#define WD_TIMER_PERIOD (pdMS_TO_TICKS( 3 ))
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
@@ -71,6 +75,10 @@ static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
 /** @brief  Internal function to handle received messages */
 static void handle_message(const Message_t *message);
+/** @brief  Centralized Watchdog Timer for indicating Fatal error */
+static void watchdog_expired_handler(TimerHandle_t handle);
+/** @brief  Centralized shutdown function */
+static void shutdown(uint32_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -98,6 +106,9 @@ img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
     .data_size = 0,
 };
 
+// Watchdog Timer
+static TimerHandle_t xWatchdogTimer;
+
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -116,7 +127,7 @@ int main( void )
     xNotificationTaskInit(NOTIF_TASK_PRIORITY, configMINIMAL_STACK_SIZE);
 
     /* At this point, you can create queue,semaphore, task requested for your application */
-    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
+    xTaskCreate(vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL);
 
     /* Start the tasks and timer running. */
     /* Here No task are defined, so if we start the Scheduler 2 tasks will running (Timer and Idle) */
@@ -133,6 +144,8 @@ int main( void )
 /*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
+    TaskHandle_t xTimerTask;
+
     // Boot Complete Message as Initial Message
     Message_t message = {
         .id = MESSAGE_GENERAL_MCU_BOOT_RESP,
@@ -149,7 +162,7 @@ static void vMainTask( void *pvParameters )
     wddr_init(&wddr, WDDR_BASE_ADDR, &table);
     if (wddr_boot(&wddr) != WDDR_SUCCESS)
     {
-        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
+        shutdown(0x10001);
     }
 
     /**
@@ -161,6 +174,17 @@ static void vMainTask( void *pvParameters )
     taskYIELD();
     vTaskPrioritySet(NULL, MAIN_TASK_PRIORITY);
 
+    // Create Watchdog Timer
+    xWatchdogTimer = xTimerCreate("Watchdog Timer",
+                                  WD_TIMER_PERIOD,
+                                  pdFALSE,
+                                  NULL,
+                                  watchdog_expired_handler);
+
+    // Bump timer priority
+    xTimerTask = xTimerGetTimerDaemonTaskHandle();
+    vTaskPrioritySet(xTimerTask, TIMER_TASK_PRIORITY);
+
     // Send Boot Complete Message
     wddr_messenger_send(&message_intf, &message);
 
@@ -169,11 +193,28 @@ static void vMainTask( void *pvParameters )
     {
         if (wddr_messenger_receive(&message_intf, &message))
         {
+            // Start timer
+            if (!xTimerStart(xWatchdogTimer, 0))
+            {
+                break;
+            }
+
+            // Process message
             handle_message(&message);
+
+            // Stop timer
+            if (!xTimerStop(xWatchdogTimer, 0))
+            {
+                break;
+            }
         }
     }
 
+    // Something went wrong
     vTaskDelete(NULL);
+
+    // Shutdown
+    shutdown(0x10001);
 }
 
 /*-----------------------------------------------------------*/
@@ -214,9 +255,7 @@ void vApplicationMallocFailedHook( void )
     FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
-    _exit(1);
+    shutdown(0x20001);
 }
 
 /*-----------------------------------------------------------*/
@@ -242,9 +281,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
-    _exit(1);
+    shutdown(0x30001);
 }
 
 /*-----------------------------------------------------------*/
@@ -271,15 +308,13 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
         return;
     }
 
-    taskDISABLE_INTERRUPTS();
     // Write out the file and line number
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
     while (*pcString != '\0')
     {
         reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
     }
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x40001);
-    _exit(1);
+    shutdown(0x40001);
 }
 
 /*-----------------------------------------------------------*/
@@ -287,18 +322,14 @@ void handle_message(const Message_t *message)
 {
     uint8_t freq_id;
     Message_t resp_msg = {0, 0};
+
+    // Disable message interrupts while processing
+    interrupt_disable(MESSENGER_REQ_INTERRUPT_MSK |
+                        MESSENGER_ACK_INTERRUPT_MSK);
     switch(message->id)
     {
         // Prep Request
         case MESSAGE_WDDR_FREQ_PREP_REQ:
-            /**
-             * Disable unecessary interrupts that would increase prep time if
-             * fired.
-             */
-            interrupt_disable(TIMER_INTERRUPT_MSK |
-                              MESSENGER_REQ_INTERRUPT_MSK |
-                              MESSENGER_ACK_INTERRUPT_MSK);
-
             // Extract Frequency ID
             freq_id = GET_REG_FIELD(message->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
 
@@ -312,13 +343,27 @@ void handle_message(const Message_t *message)
             resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
             resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
             wddr_messenger_send(&message_intf, &resp_msg);
-
-            // Re-enable interrupts
-            interrupt_enable(TIMER_INTERRUPT_MSK |
-                             MESSENGER_REQ_INTERRUPT_MSK |
-                             MESSENGER_ACK_INTERRUPT_MSK);
             break;
         default:
             break;
     }
+
+    // Re-enable messaging interrupts
+    interrupt_enable(MESSENGER_REQ_INTERRUPT_MSK |
+                     MESSENGER_ACK_INTERRUPT_MSK);
+}
+
+/*-----------------------------------------------------------*/
+static void watchdog_expired_handler(TimerHandle_t handle)
+{
+    // TODO: Send a message to host
+    shutdown(0x50001);
+}
+
+/*-----------------------------------------------------------*/
+static void shutdown(uint32_t cause)
+{
+    taskDISABLE_INTERRUPTS();
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, cause);
+    _exit(1);
 }

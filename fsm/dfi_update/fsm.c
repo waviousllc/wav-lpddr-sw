@@ -6,9 +6,6 @@
 #include <dfi_update/fsm.h>
 #include <compiler.h>
 
-// Timer is 1ms minimum, add 1 extra tick to ensure > 1ms
-#define WD_TIMER_PERIOD     ( pdMS_TO_TICKS( 1 ) + 1 )
-
 /** @brief  DFI Update State Handler for IDLE state */
 static void dfi_update_state_idle(fsm_t *fsm, void *data);
 
@@ -36,9 +33,6 @@ static void handle_dfi_ctrlupd_irq(int irq_num, void *args);
 /** @brief  IRQ Handler for all phyupd ACK events */
 static void handle_dfi_phyupd_ack(int irq_num, void *args);
 
-/** @brief  Watchdog Timer Handler for all timeout events */
-static void watchdog_expired_handler(TimerHandle_t handle);
-
 /** @brief  Table specifying state, guard, and exit functions for all states */
 static const state_func_t state_table[] =
 {
@@ -62,12 +56,6 @@ void dfi_update_fsm_init(dfi_update_fsm_t *fsm,
     fsm->intf.dev = dev;
     fsm->intf.iocal_calibrate = iocal_calibrate;
     fsm->intf.iocal_update_phy = iocal_update_phy;
-
-    fsm->timer = xTimerCreate("UpdFsmWd",
-                              WD_TIMER_PERIOD,
-                              pdFALSE,
-                              (void *) fsm,
-                              watchdog_expired_handler);
 
     // Force ACK low to ignore ctrlupd requests
     reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR);
@@ -115,17 +103,10 @@ static void dfi_update_state_idle(__UNUSED__ fsm_t *fsm, __UNUSED__ void *data)
     // Do Nothing
 }
 
-static void dfi_update_state_req(fsm_t *fsm, void *data)
+static void dfi_update_state_req(__UNUSED__ fsm_t *fsm, void *data)
 {
     uint32_t reg_val;
     dfi_phyupd_type_t *type = (dfi_phyupd_type_t *) data;
-    dfi_update_fsm_t *update_fsm = (dfi_update_fsm_t *) (fsm->instance);
-
-    // Schedule WD timer
-    if (xTimerReset(update_fsm->timer, 0) == pdFALSE)
-    {
-        fsm_handle_internal_event(fsm, DFI_UPDATE_STATE_IDLE, NULL);
-    }
 
     // Assert PHYUPD REQ and set type
     reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR);
@@ -197,10 +178,6 @@ static void dfi_update_state_update(fsm_t *fsm, __UNUSED__ void *data)
 static void dfi_update_state_update_exit(fsm_t *fsm, __UNUSED__ void *data)
 {
     uint32_t reg_val;
-    dfi_update_fsm_t *update_fsm = (dfi_update_fsm_t *) (fsm->instance);
-
-    // Cancel timer now that we are exiting the FSM
-    xTimerStop(update_fsm->timer, 0);
 
     // Deassert PHYUPD REQ
     reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR);
@@ -271,11 +248,4 @@ static void handle_dfi_phyupd_ack(__UNUSED__ int irq_num, void *args)
 
     // PHYUPD ACK recieved, move to UPDATE state
     fsm_handle_interrupt_event(&fsm->fsm, DFI_UPDATE_STATE_UPDATE, NULL);
-}
-
-static void watchdog_expired_handler(TimerHandle_t handle)
-{
-    dfi_update_fsm_t *fsm = (dfi_update_fsm_t *) pvTimerGetTimerID(handle);
-    // Exit update since expired
-    fsm_handle_external_event(&fsm->fsm, DFI_UPDATE_STATE_UPDATE_EXIT, NULL);
 }

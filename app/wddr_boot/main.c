@@ -59,6 +59,8 @@
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
 static void prvSetupHardware( void );
+/** @brief  Centralized shutdown function */
+static void shutdown(uint32_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
@@ -120,7 +122,8 @@ static void vMainTask( void *pvParameters )
     wddr_init(&wddr, WDDR_BASE_ADDR, &table);
     if (wddr_boot(&wddr) != WDDR_SUCCESS)
     {
-        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
+        // Shutdown
+        shutdown(0x10001);
     }
 
     vTaskDelete(NULL);
@@ -164,9 +167,7 @@ void vApplicationMallocFailedHook( void )
     FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
-    _exit(1);
+    shutdown(0x20001);
 }
 
 /*-----------------------------------------------------------*/
@@ -192,9 +193,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
-    _exit(1);
+    shutdown(0x30001);
 }
 
 /*-----------------------------------------------------------*/
@@ -203,6 +202,7 @@ void vApplicationTickHook( void )
     /* The tests in the full demo expect some interaction with interrupts. */
 }
 
+/*-----------------------------------------------------------*/
 /*-----------------------------------------------------------*/
 void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 {
@@ -216,18 +216,24 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
      */
     memcpy(&cFileName[0], &pcString[ulFileNameLen - 6], 6);
 
-    if (strcmp(pcFileName, "port.c") && ulLine == 161)
+    if (!strcmp(&cFileName[0], "port.c") && ulLine == 161)
     {
         return;
     }
 
-    taskDISABLE_INTERRUPTS();
     // Write out the file and line number
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
     while (*pcString != '\0')
     {
         reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
     }
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x40001);
+    shutdown(0x40001);
+}
+
+/*-----------------------------------------------------------*/
+static void shutdown(uint32_t cause)
+{
+    taskDISABLE_INTERRUPTS();
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, cause);
     _exit(1);
 }
