@@ -36,12 +36,15 @@ endif()
 ################################################################################
 # Set flag for skipping PLL calibration at boot
 set(CONFIG_CALIBRATE_PLL true CACHE BOOL "Flag to indicate if PLL calibration is performed at boot.")
+message("PLL CAL:       ${CONFIG_CALIBRATE_PLL}")
 
 # Set flag for skipping ZQCAL calibration at boot
 set(CONFIG_CALIBRATE_ZQCAL true CACHE BOOL "Flag to indicate if ZQCAL calibration is performed at boot.")
+message("ZQCAL CAL:     ${CONFIG_CALIBRATE_ZQCAL}")
 
 # Set flag for skipping Sense Amp calibration at boot
 set(CONFIG_CALIBRATE_SA true CACHE BOOL "Flag to indicate if SA calibration is performed at boot.")
+message("SA CAL:        ${CONFIG_CALIBRATE_SA}")
 
 ################################################################################
 ##                        SOURCE DIRECTORIES
