@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: LGPL-3.0-or-later
+ * SPDX-License-Identifier: Apache-2.0
  */
 #include <receiver/device.h>
 #include <receiver/driver.h>
