@@ -5,17 +5,8 @@ See [wav-lpddr-hw](https://github.com/waviousllc/wav-lpddr-hw) for more details
 about the hardware platform.
 
 ## License
-This project contains two licensing models both falling under the
-GNU GENERAL PUBLIC LICENSE as follows:
-
-* The WAV-LPDDR-SW application code (located under `app` directory) and other
-  portions not explicitly licensed otherwise, are licensed under the
-  GNU GENERAL PUBLIC LICENSE -- see `COPYING` file in this directory for
-  details.
-
-* `libwddr` and the other WAV-LPDDR-SW libraries are licensed under the
-  GNU LESSER GENERAL PUBLIC LICENSE -- see `COPYING.LESSER` file in this
-  directory for details.
+This project is licensed as Apache-2.0. Previous releases used GPL-3.0 and
+LGPL-3.0.
 
 ## Project Organization
 At a high-level the project is organized into 5 main directories:
@@ -98,6 +89,3 @@ make
 ~~~~
 
 The generic command: `cmake .. -D<CMAKE_VARIABLE_NAME>=<VAL>`
-
-## Testing
-See [wav-lpddr](https://github.com/waviousllc/wav-lpddr) for testing SW builds.

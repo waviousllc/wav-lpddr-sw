@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2021 Wavious LLC.
  *
- * SPDX-License-Identifier: LGPL-3.0-or-later
+ * SPDX-License-Identifier: Apache-2.0
  */
 #ifndef _PI_RX_TABLE_H_
 #define _PI_RX_TABLE_H_
