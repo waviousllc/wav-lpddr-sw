@@ -79,6 +79,8 @@ static const state_func_t state_table[] =
 
 void freq_switch_fsm_init(fs_fsm_t *fsm, pll_fsm_t *pll_fsm)
 {
+    uint32_t mask;
+
     fsm_init(&fsm->fsm, pll_fsm, state_table);
 
     // Set Init Complete Callback variables to NULL
@@ -98,12 +100,17 @@ void freq_switch_fsm_init(fs_fsm_t *fsm, pll_fsm_t *pll_fsm)
     // Connect callback to PLL FSM
     fsm_register_state_change_callback(pll_fsm, pll_state_change_cb, fsm);
 
+    // Mask interrupts
+    mask = reg_read(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_MSK_CFG__ADR);
+    mask |= FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_START) | FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_COMPLETE);
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_MSK_CFG__ADR, mask);
+
     // Register interrupt handlers
     request_irq(MCU_FAST_IRQ_INIT_START, handle_phy_init_start, fsm);
     request_irq(MCU_FAST_IRQ_INIT_COMPLETE, handle_phy_init_complete, fsm);
 
     // TURN on sticky bit for IRQs
-    uint32_t mask = reg_read(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR);
+    mask = reg_read(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR);
     mask |= FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_START) | FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_COMPLETE);
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR, mask);
 }
@@ -142,7 +149,7 @@ wddr_return_t freq_switch_event_sw_switch(fs_fsm_t *fsm)
 
 wddr_return_t freq_switch_event_hw_switch_mode(fs_fsm_t *fsm)
 {
-    uint32_t init_start;
+    uint32_t init_start, reg_val;
     uint8_t curr_vco_id;
     uint8_t curr_msr;
     pll_fsm_t *pll_fsm = (pll_fsm_t *) fsm->fsm.instance;
@@ -161,14 +168,31 @@ wddr_return_t freq_switch_event_hw_switch_mode(fs_fsm_t *fsm)
     fsw_ctrl_set_msr_vco_ovr_reg_if(false);
 
     // Release init_complete override indicating dfi interface is ready.
-    dfi_set_init_complete_ovr_reg_if(false);
+    dfi_set_init_complete_ovr_reg_if(false, 0x0);
+
     // init_start must be low before proceeding, wait for this to happen.
     do
     {
         dfi_get_init_start_status_reg_if(&init_start);
     } while (init_start != 0x0);
+
     // Ensure init_start override is disabled.
-    dfi_set_init_start_ovr_reg_if(false);
+    dfi_set_init_start_ovr_reg_if(false, 0x0);
+
+    // Disable interrupts
+    disable_irq(MCU_FAST_IRQ_INIT_START);
+    disable_irq(MCU_FAST_IRQ_INIT_COMPLETE);
+
+    // Unmask interrupts
+    reg_val = reg_read(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_MSK_CFG__ADR);
+    reg_val &= ~(FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_START) | FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_COMPLETE));
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_MSK_CFG__ADR, reg_val);
+
+    // Clear interrupts
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR,
+              FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_START) | FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_COMPLETE));
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, 0x0);
+
     fsm->hw_switch_only = true;
     return WDDR_SUCCESS;
 }
@@ -351,10 +375,7 @@ static void handle_phy_init_start(__UNUSED__ int irq_num, void *args)
     if (fsm->init_complete_cb)
     {
         // Override Init Complete and force low to Complete MRW
-        reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR);
-        reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_STATUS_IF_CFG_SW_ACK_VAL, 0x1);
-        reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_STATUS_IF_CFG_SW_ACK_OVR, 0x1);
-        reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR, reg_val);
+        dfi_set_init_complete_ovr_reg_if(true, 0x1);
 
         // Set Post Work Done Override
         reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);

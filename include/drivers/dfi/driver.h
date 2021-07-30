@@ -172,22 +172,24 @@ void dfi_ovr_traffic_cfg_reg_if(dfi_dev_t *dfi, dfi_ovr_traffic_cfg_t *cfg);
  *
  * @details Set Init Complete Override via CSR.
  *
- * @param[in]   enable  Init Complete Override CSR value.
+ * @param[in]   override    Init Complete sw override enable.
+ * @param[in]   val         Init Complete override value.
  *
  * @return      void
  */
-void dfi_set_init_complete_ovr_reg_if(bool enable);
+void dfi_set_init_complete_ovr_reg_if(bool override, uint8_t val);
 
 /**
  * @brief   DFI Set Init Start SW Override Register Interface
  *
  * @details Set Init Start Override via CSR.
  *
- * @param[in]   enable  Init Start Override CSR value.
+ * @param[in]   override    Init Start sw override enable.
+ * @param[in]   val         Init Start override value.
  *
  * @return      void
  */
-void dfi_set_init_start_ovr_reg_if(bool enable);
+void dfi_set_init_start_ovr_reg_if(bool override, uint8_t val);
 
 /**
  * @brief   DFI Get Init Start Status Register Interface
@@ -199,5 +201,17 @@ void dfi_set_init_start_ovr_reg_if(bool enable);
  * @return      void
  */
 void dfi_get_init_start_status_reg_if(uint32_t *init_start);
+
+/**
+ * @brief   DFI Command Address Read Loopback Enable Register Interface
+ *
+ * @details Enables Command Address (CA) Read Loopback path via CSR.
+ *
+ * @param[in]   enable  flag to indicate if CA Read loopback path
+ *                      should be enabled.
+ *
+ * @return  void
+ */
+void dfi_ca_read_loopback_enable_reg_if(bool enable);
 
 #endif /* _DFI_DRIVER_H_ */
