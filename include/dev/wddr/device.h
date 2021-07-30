@@ -123,4 +123,20 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr);
  */
 wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id);
 
+/**
+ * @brief   WDDR Enable Loopback
+ *
+ * @details Enables Loopback mode for WDDR device.
+ *
+ * @note    This is only used for training modes. It should never be used
+ *          otherwise.
+ *
+ * @note    Perform a frequency prep and switch to reset loopback state.
+ *
+ * @param[in]   wddr    pointer to WDDR device.
+ *
+ * @return  void.
+ */
+void wddr_enable_loopback(wddr_dev_t *wddr);
+
 #endif /* _WDDR_DEV_H_ */

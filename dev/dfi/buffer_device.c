@@ -74,7 +74,15 @@ static wddr_return_t dfi_buffer_write_packets(dfi_buffer_dev_t *dfi_buffer,
 {
     wddr_return_t ret = WDDR_SUCCESS;
     packet_item_t *packet_item;
-    ListItem_t *next = listGET_HEAD_ENTRY(packet_list);
+    ListItem_t *next;
+
+    // Should have at least one packet
+    if (listLIST_IS_EMPTY(packet_list))
+    {
+        return WDDR_ERROR;
+    }
+
+    next = listGET_HEAD_ENTRY(packet_list);
 
     /**
      * Send all packets except the last packet.

@@ -33,6 +33,7 @@
 #include <wddr/device.h>
 #include <wddr/driver.h>
 #include <wddr/memory_map.h>
+#include <wddr/irq_map.h>
 #include <wddr/notification_map.h>
 
 /*******************************************************************************
@@ -180,8 +181,11 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     // Flush PHY through DFI buffer
     wddr_clear_fifo_all_channels(wddr);
     fsw_csp_sync_reg_if();
+
     wddr_configure_phy(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0);
+
     wddr_dfi_buffer_flush(&wddr->dfi.dfi_buffer);
+
     wddr_clear_fifo_all_channels(wddr);
 
     // Release override of CS / CKE TX Drivers
@@ -585,6 +589,65 @@ static void wddr_iocal_calibrate(void *dev)
 {
     wddr_dev_t *wddr = (wddr_dev_t *) dev;
     zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal);
+}
+
+static void ca_enable_loopback(ca_path_t *ca_path, driver_cfg_t *cfg)
+{
+    driver_override_all_bits(&ca_path->tx.ca.driver, WDDR_SLICE_TYPE_CA, cfg, false);
+    driver_override_all_bits(&ca_path->tx.ck.driver, WDDR_SLICE_TYPE_CK, cfg, false);
+
+    for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
+    {
+        driver_cmn_set_loopback_reg_if(&ca_path->tx.rank[rank].ck.driver, DRIVER_LOOPBACK_MODE_ENABLE);
+        driver_cmn_set_mode_reg_if(&ca_path->tx.rank[rank].ck.driver, DRIVER_MODE_DIFF);
+    }
+}
+
+static void dq_enable_loopback(dq_path_t *dq_path, driver_cfg_t *cfg)
+{
+    driver_override_all_bits(&dq_path->tx.dq.driver, WDDR_SLICE_TYPE_DQ, cfg, false);
+    driver_override_all_bits(&dq_path->tx.dqs.driver, WDDR_SLICE_TYPE_DQS, cfg, false);
+    for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
+    {
+        driver_cmn_set_loopback_reg_if(&dq_path->tx.rank[rank].dqs.driver, DRIVER_LOOPBACK_MODE_ENABLE);
+        driver_cmn_set_mode_reg_if(&dq_path->tx.rank[rank].dqs.driver, DRIVER_MODE_DIFF);
+        receiver_set_mode_reg_if(&dq_path->rx.rank[rank].dqs.receiver, REC_MODE_DIFF, REC_PATH_AC);
+    }
+}
+
+void wddr_enable_loopback(wddr_dev_t *wddr)
+{
+    uint32_t reg_val;
+    dq_path_t *dq_path;
+    ca_path_t *ca_path;
+
+    driver_cfg_t cfg =
+    {
+        .override.sel = 0x3,
+        .override.val_c = 0x0,
+        .override.val_t = 0x0,
+        .rx_impd = DRIVER_IMPEDANCE_40,
+        .tx_impd = DRIVER_IMPEDANCE_40,
+    };
+
+    // Turn on DFI Loopback (CH0)
+    // TODO: Would want channel configuration elsewhere
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_TOP_0_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_TOP_0_CFG_CA_LPBK_SEL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_TOP_0_CFG__ADR, reg_val);
+
+    dfi_ca_read_loopback_enable_reg_if(true);
+
+    for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
+    {
+        ca_path = &wddr->channel[channel].ca;
+        ca_enable_loopback(ca_path, &cfg);
+        for (uint8_t dq_byte = 0; dq_byte < WDDR_PHY_DQ_BYTE_NUM; dq_byte++)
+        {
+            dq_path = &wddr->channel[channel].dq[dq_byte];
+            dq_enable_loopback(dq_path, &cfg);
+        }
+    }
 }
 
 /*******************************************************************************

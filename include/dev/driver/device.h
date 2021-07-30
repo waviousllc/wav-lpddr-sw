@@ -99,11 +99,11 @@ void driver_set_impedance_all_bits(driver_dev_t *driver,
  * @details Overrides the Driver device output for a given bit within a given
  *          slice.
  *
- * @param[in]   driver      pointer to Driver device.
- * @param[in]   cfg         pointer to Driver device configuration.
- * @param[in]   slice_type  type of slice to configure.
- * @param[in]   bit_index   which bit to configure.
- * @param[in]   override    flag to indicate if sw override is enabled.
+ * @param[in]   driver          pointer to Driver device.
+ * @param[in]   cfg             pointer to Driver device configuration.
+ * @param[in]   slice_type      type of slice to configure.
+ * @param[in]   bit_index       which bit to configure.
+ * @param[in]   output_enable   flag to indicate if output is enabled.
  *
  * @return      void
  */
@@ -111,6 +111,23 @@ void driver_override(driver_dev_t *driver,
                      driver_cfg_t *cfg,
                      wddr_slice_type_t slice_type,
                      uint8_t bit_index,
-                     bool override);
+                     bool output_enable);
+
+/**
+ * @brief   Driver Override All Bits
+ *
+ * @details Sets the Driver device settings for all bits for the given slice.
+ *
+ * @param[in]   driver          pointer to Driver device.
+ * @param[in]   slice_type      slice type of Driver device.
+ * @param[in]   cfg             pointer to Driver device configuration.
+ * @param[in]   output_enable   flag to indicate if output is enabled.
+ *
+ * @return      void
+ */
+void driver_override_all_bits(driver_dev_t *driver,
+                              wddr_slice_type_t slice_type,
+                              driver_cfg_t *cfg,
+                              bool output_enable);
 
 #endif /* _DRIVER_DEV_H_ */
