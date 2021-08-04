@@ -7,18 +7,13 @@
 #define _WDDR_DEV_H_
 
 #include <error.h>
-#include <kernel/completion.h>
-#include <kernel/notification.h>
 #include <dfi/device.h>
-#include <dfi_master/fsm.h>
-#include <dfi_update/fsm.h>
 #include <dram/device.h>
-#include <freq_switch/fsm.h>
+#include <fsw/device.h>
 #include <path/ca.h>
 #include <path/common.h>
 #include <path/dq.h>
 #include <pll/device.h>
-#include <pll/fsm.h>
 #include <wddr/phy_config.h>
 #include <wddr/table.h>
 
@@ -49,32 +44,22 @@ typedef struct channel_t
  * cmn          all devices in common path.
  * dfi          DFI device.
  * dram         DRAM device.
+ * fsw          Frequency Switch device.
  * pll          PLL device.
- * fsm.pll      PLL FSM.
- * fsm.fsw      Frequency Switch FSM.
- * fsm.dfiupd   DFI Update FSM.
- * fsm.dfimstr  DFI Master FSM.
  * table        pointer to calibration and configuration table for all
  *              frequencies.
  */
 typedef struct wddr_dev_t
 {
-    uint32_t                base;
-    TaskHandle_t            xHandle;
-    NotificationEndpoint_t  endpoint;
-    channel_t               channel[WDDR_PHY_CHANNEL_NUM];
-    common_path_t           cmn;
-    dfi_dev_t               dfi;
-    dram_dev_t              dram;
-    pll_dev_t               pll;
-    struct
-    {
-        pll_fsm_t           pll;
-        fs_fsm_t            fsw;
-        dfi_update_fsm_t    dfiupd;
-        dfi_master_fsm_t    dfimstr;
-    } fsm;
-    wddr_table_t            *table;
+    uint32_t        base;
+    bool            is_booted;
+    channel_t       channel[WDDR_PHY_CHANNEL_NUM];
+    common_path_t   cmn;
+    dfi_dev_t       dfi;
+    dram_dev_t      dram;
+    pll_dev_t       pll;
+    fsw_dev_t       fsw;
+    wddr_table_t    *table;
 } wddr_dev_t;
 
 /**
@@ -85,6 +70,8 @@ typedef struct wddr_dev_t
  * @note    PLL and Common block devices aren't initialized in this function.
  *          It is expected those are done prior so that MCU can run at MCUCLK
  *          rate and not REFCLK rate.
+ *
+ * @note    Should only be called by firmware.
  *
  * @param[in]   wddr    pointer to WDDR device.
  * @param[in]   base    base address of the WDDR device.
@@ -100,6 +87,8 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table);
  *
  * @details Boots WDDR Device. This calibrates all analog devices, and
  *          configures PHY for boot frequency.
+
+ * @note    Should only be called by firmware.
  *
  * @param[in]   wddr    pointer to WDDR device.
  *
@@ -114,6 +103,8 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr);
  *
  * @details Prepares WDDR device for a frequency switch.
  *
+ * @note    Should only be called by firmware.
+ *
  * @param[in]   wddr    pointer to WDDR device.
  * @param[in]   freq_id ID of frequency to prepare.
  *
@@ -122,6 +113,26 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr);
  * @retval      WDDR_ERROR otherwise.
  */
 wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id);
+
+/**
+ * @brief   Wavious DDR (WDDR) Software Frequency Switch
+ *
+ * @details Prepares and switches WDDR PHY Frequency.
+ *
+ * @note    This function can only be used prior to boot. It's publically
+ *          available so that it can be used externally during PHY Training.
+ *
+ * @param[in]   wddr    pointer to WDDR device.
+ * @param[in]   freq_id ID of frequency to prepare and switch to.
+ * @param[in]   msr     MSR to switch to.
+ *
+ * @return      returns whether switch completed sucessfully.
+ * @retval      WDDR_SUCCESS if successful.
+ * @retval      WDDR_ERROR if switch cannot be called.
+ */
+wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr,
+                                  uint8_t freq_id,
+                                  wddr_msr_t msr);
 
 /**
  * @brief   WDDR Enable Loopback
@@ -138,5 +149,35 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id);
  * @return  void.
  */
 void wddr_enable_loopback(wddr_dev_t *wddr);
+
+/**
+ * @brief   WDDR IOCAL Update PHY
+ *
+ * @details Updates IOCAL CSRs in the PHY with latest calibrated values.
+ *          Can only be called when in PHYUPD or CTRLUPD states.
+ *          Do not call directly.
+ *
+ * @note    Should only be called by firmware.
+ *
+ * @param[in]   wddr    pointer to WDDR device.
+ *
+ * @return      void.
+ */
+void wddr_iocal_update_phy(wddr_dev_t *wddr);
+
+/**
+ * @brief   WDDR IOCAL Calibrate
+ *
+ * @details Calibrates IOCAL values. Calibration can be done regardless of
+ *          DFI states. See wddr_iocal_update_phy for information about how
+ *          to apply calibrated values to the PHY. Do not call directly.
+ *
+ * @note    Should only be called by firmware.
+ *
+ * @param[in]   wddr    pointer to WDDR device.
+ *
+ * @return      void.
+ */
+void wddr_iocal_calibrate(wddr_dev_t *wddr);
 
 #endif /* _WDDR_DEV_H_ */

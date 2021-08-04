@@ -44,15 +44,6 @@ packet_item_t packets[56] __attribute__ ((section (".data"))) = {0};
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
-/** @brief   Internal Notification Handler */
-static void notification_handler(Notification_t notification, void *args);
-
-/** @brief  Internal Common WDDR Frequency Switch Implementation */
-static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch);
-
-/** @brief  Internal Frequency Switch Function */
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
-
 /** @brief  Internal Function to enable all PHY LPDEs and Phase Interpolators */
 static void wddr_enable(wddr_dev_t *wddr);
 
@@ -79,15 +70,6 @@ static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr);
 /** @brief  Internal Function for preparing WDDR PHY for frequency switch */
 static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
 
-/** @brief  Internal Function passed to DFI Update FSM performing IOCAL Update */
-static void wddr_iocal_update_csr(void *dev);
-
-/** @brief  Internal Function passed to DFI Update FSM performing IOCAL Cal */
-static void wddr_iocal_calibrate(void *dev);
-
-/** @brief  Init Complete Callback. Sends MRWs for next frequency during switch. */
-static void wddr_init_complete_callback(fs_fsm_t *fsm, void *args);
-
 /** @brief  Internal weak declaration of WDDR Training Function */
 __attribute__(( weak ))
 wddr_return_t wddr_train(wddr_dev_t *wddr);
@@ -101,6 +83,7 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
 
     // Initialize entire WDDR device
     wddr_init_reg_if(wddr, base);
+    wddr->is_booted = false;
     wddr->table = table;
 
     // Channel Configuration
@@ -127,15 +110,8 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
               &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram,
               &wddr->table->cal.freq[WDDR_PHY_BOOT_FREQ].dram);
 
-    // Notification Init
-    vInitNotificationEndpoint(&wddr->endpoint, notification_handler, wddr);
-    vRegisterNotificationEndpoint(&wddr->endpoint);
-
-    // FSM
-    pll_fsm_init(&wddr->fsm.pll, &wddr->pll);
-    freq_switch_fsm_init(&wddr->fsm.fsw, &wddr->fsm.pll);
-    dfi_master_fsm_init(&wddr->fsm.dfimstr);
-    dfi_update_fsm_init(&wddr->fsm.dfiupd, wddr, wddr_iocal_update_csr, wddr_iocal_calibrate);
+    // FSW
+    fsw_init(&wddr->fsw);
 }
 
 wddr_return_t wddr_boot(wddr_dev_t *wddr)
@@ -173,7 +149,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     }
 
     // Switch to PHY_BOOT Frequency
-    PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
+    wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0);
 
     // Turn on LPDE / Phase Interpolators in PHY
     wddr_enable(wddr);
@@ -188,18 +164,8 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
 
     wddr_clear_fifo_all_channels(wddr);
 
-    // Release override of CS / CKE TX Drivers
-    for (uint8_t channel = WDDR_CHANNEL_0; channel < WDDR_CHANNEL_TOTAL; channel++)
-    {
-        driver_cfg_t *cfg = &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].channel[channel].ca.tx.rank_cmn.ca.driver;
-        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_0, false);
-        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CS_1, false);
-        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CKE_0, false);
-        driver_override(&wddr->channel[channel].ca.tx.ca.driver, cfg, WDDR_SLICE_TYPE_CA, CA_SLICE_CKE_1, false);
-    }
-
     #if CONFIG_CALIBRATE_ZQCAL
-    PROPAGATE_ERROR(zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal));
+    wddr_iocal_calibrate(wddr);
     #endif /* CONFIG_CALIBRATE_ZQCAL */
 
     // Set VREF code
@@ -270,19 +236,15 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     wddr_clear_fifo_all_channels(wddr);
 
     // Switch VCOs until on VCO_INDEX_PHY_1
-    pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
+    pll_get_current_vco(&wddr->pll, &current_vco_id);
     while (current_vco_id != VCO_INDEX_PHY_1)
     {
-        PROPAGATE_ERROR(wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0));
-        pll_fsm_get_current_vco_id(&wddr->fsm.pll, &current_vco_id);
+        wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0);
+        pll_get_current_vco(&wddr->pll, &current_vco_id);
     }
 
-    // Register init_complete callback
-    freq_switch_register_init_complete_callback(&wddr->fsm.fsw, wddr_init_complete_callback, wddr);
-
-    // Switch to HW frequency switch mode
-    PROPAGATE_ERROR(freq_switch_event_hw_switch_mode(&wddr->fsm.fsw));
-
+    fsw_switch_to_dfi_mode(&wddr->fsw);
+    wddr->is_booted = true;
     return WDDR_SUCCESS;
 }
 
@@ -310,114 +272,86 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
                                      &wddr->table->cfg.freq[freq_id].dram,
                                      &wddr->table->cal.freq[freq_id].dram);
 
-    // Prep PLL for a switch
-    PROPAGATE_ERROR(wddr_freq_switch_prv(wddr, freq_id, next_msr, false));
+    // Prepare PLL
+    pll_prepare_vco_switch(&wddr->pll,
+                           freq_id,
+                           &wddr->table->cal.freq[freq_id].pll,
+                           &wddr->table->cfg.freq[freq_id].pll);
 
     return WDDR_SUCCESS;
 }
 
-static wddr_return_t wddr_freq_switch_prv(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr, bool sw_switch)
+void wddr_iocal_update_phy(wddr_dev_t *wddr)
 {
-    wddr_return_t ret = WDDR_SUCCESS;
-    Notification_t notification;
+    uint8_t freq_id;
 
-    fs_prep_data_t fs_prep_data = {
-        .msr = msr,
-        .prep_data = {
-            .freq_id = freq_id,
-            .cal = &wddr->table->cal.freq[freq_id].pll,
-            .cfg = &wddr->table->cfg.freq[freq_id].pll,
-        },
-    };
+    // Get current pll frequency id
+    pll_get_current_freq(&wddr->pll, &freq_id);
 
-    // Set blocked task
-    wddr->xHandle = xTaskGetCurrentTaskHandle();
-
-    // Clear Task notifications
-    xTaskNotifyWait( 0, 0, NULL, 0 );
-
-    PROPAGATE_ERROR(freq_switch_event_prep(&wddr->fsm.fsw, &fs_prep_data));
-
-    // Wait for notification
-    xTaskNotifyWait(0, 0, &notification, portMAX_DELAY);
-
-    do
+    // Update IOCAL
+    for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
     {
-        // Ensure notification is for PREP_DONE
-        if (notification != WDDR_NOTIF_FSW_PREP_DONE)
+        for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
         {
-            ret = WDDR_ERROR;
-            break;
-        }
+            // Update CK
+            driver_cmn_set_code_reg_if(&wddr->channel[channel].ca.tx.rank[rank].ck.driver,
+                wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[rank].ck.driver.code);
 
-        // Perform frequency switch
-        if (sw_switch)
-        {
-            // Clear Task notifications
-            xTaskNotifyWait( 0, 0, NULL, 0 );
-
-            PROPAGATE_ERROR(freq_switch_event_sw_switch(&wddr->fsm.fsw));
-
-            // Wait for notification
-            xTaskNotifyWait(0, 0, &notification, portMAX_DELAY);
-
-            // Ensure notification is for FSW_DONE
-            if (notification != WDDR_NOTIF_FSW_DONE)
+            // Update DQS
+            for (uint8_t dq_byte = 0; dq_byte < WDDR_PHY_DQ_BYTE_NUM; dq_byte++)
             {
-                ret =  WDDR_ERROR;
-                break;
+                driver_cmn_set_code_reg_if(&wddr->channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver,
+                    wddr->table->cal.freq[freq_id].channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver.code);
             }
         }
-    } while (0);
-
-    // Clear Task Handle
-    wddr->xHandle = NULL;
-    return ret;
+    }
 }
 
-static wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+void wddr_iocal_calibrate(wddr_dev_t *wddr)
 {
-    return wddr_freq_switch_prv(wddr, freq_id, msr, true);
+    zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal);
 }
 
-static void notification_handler(Notification_t notification, void *args)
+wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
 {
-    wddr_dev_t *wddr = (wddr_dev_t *) args;
+    uint32_t reg_val;
+    uint8_t next_vco;
+    pll_dev_t *pll = &wddr->pll;
 
-    // Drop notification
-    if (wddr->xHandle == NULL)
+    // Can only call if wddr hasn't booted
+    if (wddr->is_booted)
     {
-        return;
+        return WDDR_ERROR;
     }
 
-    // Only interested in WDDR Notifications
-    if (notification >= WDDR_NOTIF_END)
-    {
-        return;
-    }
+    // Don't toggle MSR
+    fsw_ctrl_set_msr_toggle_en_reg_if(false);
 
-    /**
-     * Notifications should not be overwritten! Multiple notifications
-     * might occur. The notifications after the first will be dropped but
-     * that is okay for this module. Here's why:
-     *
-     * Two scenarios occur where this handler is used:
-     * 1. Prep only (with or without a HW switch)
-     * 2. Prep and Software Switch
-     *
-     * In scenario 2, the software will ensure prep notification occurs, prior
-     * to performing software based switch that would produce the second notification,
-     * which prevents the notification from being dropped.
-     *
-     * In scenario 1, the software will ensure prep notification occurs. If a HW
-     * switch is performed, it might produce the switch done notification before
-     * the prep notification is processed. However, this module is not interested
-     * in the switch notification in that scenario since it's not performing the
-     * switch. It's only interested in the prep notification. Thus, if the notification
-     * is not overwritten, then the prep notification will always be processed.
-     * Simply put, scenario 1 is ONLY concerned with the prep notification.
-     */
-    xTaskNotify(wddr->xHandle, notification, eSetValueWithoutOverwrite);
+    // Prepare PLL
+    pll_prepare_vco_switch(pll,
+                           freq_id,
+                           &wddr->table->cal.freq[freq_id].pll,
+                           &wddr->table->cfg.freq[freq_id].pll);
+
+    // Override MSR / PLL VCO
+    pll_get_next_vco(pll, &next_vco);
+    configASSERT(next_vco != UNDEFINED_VCO_ID);
+    fsw_ctrl_set_msr_vco_ovr_val_reg_if(msr, next_vco);
+    fsw_ctrl_set_msr_vco_ovr_reg_if(true);
+
+    // Switch PLL to new Frequency
+    pll_switch_vco(pll, true);
+
+    // Block until PLL is ready
+    do
+    {
+        reg_val = reg_read(pll->base + DDR_MVP_PLL_CORE_STATUS__ADR);
+    } while (!GET_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_CORE_READY));
+
+    // Put back to normal state
+    fsw_ctrl_set_msr_toggle_en_reg_if(true);
+
+    return WDDR_SUCCESS;
 }
 
 static void wddr_enable(wddr_dev_t *wddr)
@@ -539,56 +473,12 @@ static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
      */
 }
 
-static void wddr_init_complete_callback(__UNUSED__ fs_fsm_t *fsm, void *args)
-{
-    wddr_dev_t *wddr = (wddr_dev_t *) args;
-
-    // Send MRW from DFI Buffer
-    dfi_buffer_send_packets(&wddr->dfi.dfi_buffer, false);
-
-    // Must disable buffer when done
-    dfi_buffer_disable(&wddr->dfi.dfi_buffer);
-}
-
 static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr)
 {
     for (uint8_t channel = WDDR_CHANNEL_0; channel <= WDDR_CHANNEL_1; channel++)
     {
         wddr_clear_fifo_reg_if(wddr, channel);
     }
-}
-
-static void wddr_iocal_update_csr(void *dev)
-{
-    wddr_dev_t *wddr = (wddr_dev_t *) dev;
-    uint8_t freq_id;
-
-    // Get current pll frequency id
-    pll_fsm_get_current_freq(&wddr->fsm.pll, &freq_id);
-
-    // Update IOCAL
-    for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
-    {
-        for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
-        {
-            // Update CK
-            driver_cmn_set_code_reg_if(&wddr->channel[channel].ca.tx.rank[rank].ck.driver,
-                wddr->table->cal.freq[freq_id].channel[channel].ca.tx.rank[rank].ck.driver.code);
-
-            // Update DQS
-            for (uint8_t dq_byte = 0; dq_byte < WDDR_PHY_DQ_BYTE_NUM; dq_byte++)
-            {
-                driver_cmn_set_code_reg_if(&wddr->channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver,
-                    wddr->table->cal.freq[freq_id].channel[channel].dq[dq_byte].tx.rank[rank].dqs.driver.code);
-            }
-        }
-    }
-}
-
-static void wddr_iocal_calibrate(void *dev)
-{
-    wddr_dev_t *wddr = (wddr_dev_t *) dev;
-    zqcal_calibrate(&wddr->cmn.zqcal, &wddr->table->cal.common.common.zqcal);
 }
 
 static void ca_enable_loopback(ca_path_t *ca_path, driver_cfg_t *cfg)

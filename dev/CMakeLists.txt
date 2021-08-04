@@ -1,6 +1,7 @@
 add_subdirectory(dfi)
 add_subdirectory(dram)
 add_subdirectory(driver)
+add_subdirectory(fsw)
 add_subdirectory(ibias)
 add_subdirectory(messenger)
 add_subdirectory(path)

@@ -196,11 +196,22 @@ void dfi_set_init_start_ovr_reg_if(bool override, uint8_t val);
  *
  * @details Get Init Start Status via CSR.
  *
- * @param[out]  init_start  Pointer to return current Init Start Status.
- *
- * @return      void
+ * @return  returns status of init_start.
+ * @retval  0 if init_start is deasserted (low).
+ * @retval  1 if init_start is asserted (high).
  */
-void dfi_get_init_start_status_reg_if(uint32_t *init_start);
+uint8_t dfi_get_init_start_status_reg_if(void);
+
+/**
+ * @brief   DFI Get Init Complete Status Register Interface
+ *
+ * @details Get Init Complete Status via CSR.
+ *
+ * @return  returns status of init_complete.
+ * @retval  0 if init_complete is asserted (high).
+ * @retval  1 if init_complete is deasserted (low).
+ */
+uint8_t dfi_get_init_complete_status_reg_if(void);
 
 /**
  * @brief   DFI Command Address Read Loopback Enable Register Interface
@@ -213,5 +224,67 @@ void dfi_get_init_start_status_reg_if(uint32_t *init_start);
  * @return  void
  */
 void dfi_ca_read_loopback_enable_reg_if(bool enable);
+
+/**
+ * @brief   DFI PHYMSTR Request Assert Register Interface
+ *
+ * @details Asserts PHYMSTR REQ to the Memory Controller.
+ *
+ * @param[in]   req     pointer to PHYMSTR request parameters.
+ *
+ * @return      void.
+ */
+void dfi_phymstr_req_assert_reg_if(dfi_phymstr_req_t *req);
+
+/**
+ * @brief   DFI PHYMSTR Request Deassert Register Interface
+ *
+ * @details Deasserts PHYMASTER REQ to the Memory Controller.
+ *
+ * @return  void.
+ */
+void dfi_phymstr_req_deassert_reg_if(void);
+
+/**
+ * @brief   DFI CTRLUPD Deassert Acknowledge Register Interface
+ *
+ * @details Deasserts CTRLUPD Acknowledge to the Memory Controller.
+ *
+ * @return  void.
+ */
+void dfi_ctrlupd_deassert_ack_reg_if(void);
+
+/**
+ * @brief   DFI CTRLUPD ACK Override Register Interface
+ *
+ * @details Overrides acknowledge signal of DFI CTRLUPD interface.
+ *
+ * @param[in]   override    flag to indicate if SW should override ack.
+ * @param[in]   val         value to override (if enabled).
+ *
+ * @return      void.
+ */
+void dfi_ctrlupd_ack_override_reg_if(bool override, uint8_t val);
+
+/**
+ * @brief   DFI PHYUPD Request Assert Register Interface
+ *
+ * @details Asserts REQ signal of DFI PHYUPD interface. Singals to Memory
+ *          Controller that IOCAL Update is required.
+ *
+ * @param[in]   type    The type of PHYUPD requested.
+ *
+ * @return      void.
+ */
+void dfi_phyupd_req_assert_reg_if(dfi_phyupd_type_t type);
+
+/**
+ * @brief   DFI PHYUPD Request Deassert Register Interface
+ *
+ * @details Deasserts REQ signal of DFI PHYUPD interface.
+ *
+ * @return      void.
+ */
+void dfi_phyupd_req_deassert_reg_if(void);
 
 #endif /* _DFI_DRIVER_H_ */

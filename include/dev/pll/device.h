@@ -135,4 +135,80 @@ void pll_calibrate_vco(pll_dev_t *pll,
                        pll_freq_cal_t *cal,
                        pll_freq_cfg_t *cfg);
 
+
+/**
+ * @brief   Phase Lock Loop (PLL) Set Loss Lock Interrupt State
+ *
+ * @details Enables or disables the PLL Loss Lock interrupt.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[in]   enable  state of interrupt.
+ *
+ * @return      void.
+ */
+void pll_set_loss_lock_interrupt_state(pll_dev_t *pll, bool enable);
+
+/**
+ * @brief   Phase Lock Loop (PLL) Set Lock Interrupt State
+ *
+ * @details Enables or disables the PLL Lock interrupt.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[in]   enable  state of interrupt.
+ *
+ * @return      void.
+ */
+void pll_set_lock_interrupt_state(pll_dev_t *pll, bool enable);
+
+/**
+ * @brief   Phase Lock Loop (PLL) Set Init Lock Interrupt State
+ *
+ * @details Enables or disables the PLL Init Lock interrupt.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[in]   enable  state of interrupt.
+ *
+ * @return      void.
+ */
+void pll_set_init_lock_interrupt_state(pll_dev_t *pll, bool enable);
+
+/**
+ * @brief   Phase Lock Loop (PLL) Get Current VCO
+ *
+ * @details Gets the VCO ID of the current VCO.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[out]  vco_id  pointer to store current vco id.
+ *
+ * @return  void.
+ */
+void pll_get_current_vco(pll_dev_t *pll, uint8_t *vco_id);
+
+/**
+ * @brief   Phase Lock Loop (PLL) Get Next VCO
+ *
+ * @details Gets the VCO ID of the next VCO. This indicates the VCO that
+ *          has been prepared for a frequency switch, but has not been switched
+ *          to yet. vco_id will be set to UNDEFINED_VCO_ID if VCO hasn't
+ *          been prepared.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[out]  vco_id  pointer to store current vco id.
+ *
+ * @return  void.
+ */
+void pll_get_next_vco(pll_dev_t *pll, uint8_t *vco_id);
+
+/**
+ * @brief   Phase Lock Loop (PLL) Get Current Frequency
+ *
+ * @details Gets the FREQ ID of the current VCO.
+ *
+ * @param[in]   pll     pointer to PLL device.
+ * @param[out]  freq_id pointer to store current freq id.
+ *
+ * @return  void.
+ */
+void pll_get_current_freq(pll_dev_t *pll, uint8_t *freq_id);
+
 #endif  /* _PLL_DEV_H_ */

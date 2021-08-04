@@ -1,12 +1,12 @@
-set(LIB_NAME fs_fsm)
+set(LIB_NAME  fsw)
 set(
     SRC
-    ${CMAKE_CURRENT_LIST_DIR}/fsm.c
+    ${CMAKE_CURRENT_LIST_DIR}/device.c
 )
 
 set(
     INCLUDE
-    ${WAV_WDDR_TOP_LEVEL}/include/fsm
+    ${WAV_WDDR_TOP_LEVEL}/include/dev/
 )
 
 add_library(
@@ -23,8 +23,5 @@ target_include_directories(
 
 target_link_libraries(
     ${LIB_NAME}
-    kernel
-    dfi_driver
     fsw_driver
-    pll_fsm
 )

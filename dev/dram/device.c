@@ -532,7 +532,7 @@ void dram_prepare_mrw_update(dram_dev_t *dram,
         create_cke_packet_sequence(packet_buffer, 1);
         dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0C, dram_cal->mr12, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0E, dram_cal->mr14, 10);
+        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0E, dram_cal->mr14, dram_cfg->t_vref_ca_long);
         create_cke_packet_sequence(packet_buffer, 1);
     }
 }

@@ -34,50 +34,38 @@
 #include <kernel/io.h>
 #include <kernel/irq.h>
 #include <kernel/messenger.h>
-#include <kernel/notification.h>
 
-/* LPDDR includes. */
-#include <wddr/memory_map.h>
-#include <wddr/irq_map.h>
-#include <wddr/notification_map.h>
-#include <wddr/device.h>
-#include <clk/driver.h>
-#include <fsw/driver.h>
+/* Messenger includes. */
 #include <messenger/device.h>
 #include <messenger/messages_wddr.h>
+
+/* PHY Firmware includes. */
+#include <wddr/memory_map.h>
+#include <wddr/irq_map.h>
+#include <firmware/phy_api.h>
 
 /*******************************************************************************
 **                                   MACROS
 *******************************************************************************/
-#define WDDR_BASE_ADDR              (0x00000000)
-#define TIMER_INTERRUPT_MSK         (1 << 0x7)
 #define MESSENGER_REQ_INTERRUPT_MSK (1 << MCU_FAST_IRQ_HOST2PHY_REQ)
 #define MESSENGER_ACK_INTERRUPT_MSK (1 << MCU_FAST_IRQ_PHY2HOST_ACK)
 
 // Task priority least to greatest
-#define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 3)
-#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
-#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
-#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
-
-// Event Queues
-#define MESSENGER_TASK_QUEUE_LEN    (1)     // only 1 outstanding message at a time
-#define FSM_TASK_QUEUE_LEN          (20)    // 20 FSM events oustanding at a time
+#define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 2)
+#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 3)
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
-static void prvSetupHardware( void );
 /** @brief  Internal function to handle received messages */
 static void handle_message(const Message_t *message);
+/** @brief  Centralized shutdown function */
+static void shutdown(uint32_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-static DECLARE_WDDR_TABLE(table);
-/** @note Place in .data section at cost of image size */
-static wddr_dev_t wddr __attribute__ ((section (".data"))) = {0};
 static wddr_message_interface_t message_intf;
 
 extern uint32_t __start;
@@ -103,17 +91,11 @@ img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
 *******************************************************************************/
 int main( void )
 {
-    // Setup Hardware
-    prvSetupHardware();
+    // Initialize PHY Firmware
+    firmware_phy_init();
 
-    // Initialize FSM Task
-    xFSMTaskInit(FSM_TASK_PRIORITY, configMINIMAL_STACK_SIZE, FSM_TASK_QUEUE_LEN);
-
-    // Initialize Messenger Task
-    xMessengerTaskInit(MESSENGER_TASK_PRIORITY, configMINIMAL_STACK_SIZE, MESSENGER_TASK_QUEUE_LEN);
-
-    // Initialize Notification Task
-    xNotificationTaskInit(NOTIF_TASK_PRIORITY, configMINIMAL_STACK_SIZE);
+    // Create Messenger Task
+    xMessengerTaskInit(MESSENGER_TASK_PRIORITY, configMINIMAL_STACK_SIZE, 1);
 
     /* At this point, you can create queue,semaphore, task requested for your application */
     xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
@@ -145,21 +127,11 @@ static void vMainTask( void *pvParameters )
     // TODO: Send MSG Interface Ready message
     // TODO: Receive Boot Message to continue
 
-    // Initialize WDDR
-    wddr_init(&wddr, WDDR_BASE_ADDR, &table);
-    if (wddr_boot(&wddr) != WDDR_SUCCESS)
+    // Boot PHY
+    if (firmware_phy_start() == pdFAIL)
     {
-        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
+        shutdown(0x10001);
     }
-
-    /**
-     * Drop priority and yield to finish low priority tasks before boot
-     * message is sent to the host. Once all tasks complete, control will
-     * be given back to vMainTask.
-     */
-    vTaskPrioritySet(NULL, tskIDLE_PRIORITY + 1);
-    taskYIELD();
-    vTaskPrioritySet(NULL, MAIN_TASK_PRIORITY);
 
     // Send Boot Complete Message
     wddr_messenger_send(&message_intf, &message);
@@ -169,36 +141,10 @@ static void vMainTask( void *pvParameters )
     {
         if (wddr_messenger_receive(&message_intf, &message))
         {
+            // Process message
             handle_message(&message);
         }
     }
-
-    vTaskDelete(NULL);
-}
-
-/*-----------------------------------------------------------*/
-static void prvSetupHardware( void )
-{
-    // Initialize
-    common_path_init(&wddr.cmn, WDDR_MEMORY_MAP_CMN);
-    pll_init(&wddr.pll, WDDR_MEMORY_MAP_PLL);
-
-    // Enable Common Block
-    common_path_enable(&wddr.cmn);
-
-    // Boot PLL to set MCU clk @ 384 MHz
-    pll_boot(&wddr.pll);
-
-    // Enable Clocks
-    clk_ctrl_set_pll_clk_en_reg_if(true);
-    clk_ctrl_set_mcu_gfm_sel_reg_if(CLK_MCU_GFM_SEL_PLL_VCO0);
-    clk_cmn_ctrl_set_pll0_div_clk_rst_reg_if(false);
-    clk_cmn_ctrl_set_gfcm_en_reg_if(true);
-
-    // Turn off PHY CLK gating
-    fsw_csp_set_clk_disable_ovr_val_reg_if(false);
-
-    clk_cmn_ctrl_set_pll0_div_clk_en_reg_if(true);
 }
 
 /*-----------------------------------------------------------*/
@@ -214,9 +160,7 @@ void vApplicationMallocFailedHook( void )
     FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
-    _exit(1);
+    shutdown(0x20001);
 }
 
 /*-----------------------------------------------------------*/
@@ -242,9 +186,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
-    _exit(1);
+    shutdown(0x30001);
 }
 
 /*-----------------------------------------------------------*/
@@ -271,15 +213,13 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
         return;
     }
 
-    taskDISABLE_INTERRUPTS();
     // Write out the file and line number
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
     while (*pcString != '\0')
     {
         reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
     }
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x40001);
-    _exit(1);
+    shutdown(0x40001);
 }
 
 /*-----------------------------------------------------------*/
@@ -287,23 +227,20 @@ void handle_message(const Message_t *message)
 {
     uint8_t freq_id;
     Message_t resp_msg = {0, 0};
+
+    // Disable message interrupts while processing
+    interrupt_disable(MESSENGER_REQ_INTERRUPT_MSK |
+                      MESSENGER_ACK_INTERRUPT_MSK);
+
     switch(message->id)
     {
         // Prep Request
         case MESSAGE_WDDR_FREQ_PREP_REQ:
-            /**
-             * Disable unecessary interrupts that would increase prep time if
-             * fired.
-             */
-            interrupt_disable(TIMER_INTERRUPT_MSK |
-                              MESSENGER_REQ_INTERRUPT_MSK |
-                              MESSENGER_ACK_INTERRUPT_MSK);
-
             // Extract Frequency ID
             freq_id = GET_REG_FIELD(message->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
 
             // Prepare for switch
-            if (wddr_prep_switch(&wddr, freq_id) != WDDR_SUCCESS)
+            if (firmware_phy_prep_switch(freq_id) == pdFAIL)
             {
                 // Mark as failure
                 resp_msg.data = UPDATE_REG_FIELD(0x0, WDDR_FREQ_PREP_RSP__STATUS, 0x1);
@@ -312,13 +249,20 @@ void handle_message(const Message_t *message)
             resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
             resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
             wddr_messenger_send(&message_intf, &resp_msg);
-
-            // Re-enable interrupts
-            interrupt_enable(TIMER_INTERRUPT_MSK |
-                             MESSENGER_REQ_INTERRUPT_MSK |
-                             MESSENGER_ACK_INTERRUPT_MSK);
             break;
         default:
             break;
     }
+
+    // Re-enable messaging interrupts
+    interrupt_enable(MESSENGER_REQ_INTERRUPT_MSK |
+                     MESSENGER_ACK_INTERRUPT_MSK);
+}
+
+/*-----------------------------------------------------------*/
+static void shutdown(uint32_t cause)
+{
+    taskDISABLE_INTERRUPTS();
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, cause);
+    _exit(1);
 }
