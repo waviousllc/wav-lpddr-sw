@@ -39,13 +39,10 @@ add_library(
 target_link_libraries(
     ${LIB_NAME}
     wddr_driver
-    pll_fsm
-    fs_fsm
-    dfi_master_fsm
-    dfi_update_fsm
     path
     dfi
     pll
     dram
     wddr_ext
+    fsw
 )

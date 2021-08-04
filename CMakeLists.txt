@@ -49,6 +49,11 @@ message("SA CAL:        ${CONFIG_CALIBRATE_SA}")
 # Set flag for skipping DRAM training at boot
 set(CONFIG_DRAM_TRAIN false CACHE BOOL "Flag to indicate if DRAM training is performed at boot.")
 message("DRAM_TRAIN:    ${CONFIG_DRAM_TRAIN}")
+
+# Set flag for performing periodic calibration
+set(CONFIG_CAL_PERIODIC false CACHE BOOL "Flag to indicate if periodic calibraiton is performed.")
+message("PERIODIC CAL:  ${CONFIG_CAL_PERIODIC}")
+
 ################################################################################
 ##                        SOURCE DIRECTORIES
 ################################################################################/
@@ -56,5 +61,5 @@ message("DRAM_TRAIN:    ${CONFIG_DRAM_TRAIN}")
 add_subdirectory(${WAV_RTOS_TOP_LEVEL})
 add_subdirectory(drivers)
 add_subdirectory(dev)
-add_subdirectory(fsm)
+add_subdirectory(firmware)
 add_subdirectory(app)

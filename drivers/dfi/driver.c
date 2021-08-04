@@ -150,9 +150,14 @@ void dfi_set_init_start_ovr_reg_if(bool override, uint8_t val)
     reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_CFG__ADR, reg_val);
 }
 
-void dfi_get_init_start_status_reg_if(uint32_t *init_start)
+uint8_t dfi_get_init_start_status_reg_if(void)
 {
-    *init_start = GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_STA__ADR), DDR_DFI_STATUS_IF_STA_REQ);
+    return GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_STA__ADR), DDR_DFI_STATUS_IF_STA_REQ);
+}
+
+uint8_t dfi_get_init_complete_status_reg_if(void)
+{
+    return GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_STATUS_IF_STA__ADR), DDR_DFI_STATUS_IF_STA_ACK);
 }
 
 void dfi_ca_read_loopback_enable_reg_if(bool enable)
@@ -161,4 +166,120 @@ void dfi_ca_read_loopback_enable_reg_if(bool enable)
     reg_val = reg_read(WDDR_MEMORY_MAP_DFI_CH0 +  DDR_DFICH_TOP_1_CFG__ADR);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_CA_RDDATA_EN, enable);
     reg_write(WDDR_MEMORY_MAP_DFI_CH0 +  DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+}
+
+void dfi_phymstr_req_assert_reg_if(dfi_phymstr_req_t *req)
+{
+    uint32_t reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_TYPE, req->type);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_CS_STATE, req->cs_state);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_STATE_SEL, req->state_sel);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_REQ_OVR, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_REQ_VAL, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+}
+
+void dfi_phymstr_req_deassert_reg_if(void)
+{
+    uint32_t reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_REQ_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_EVENT_OVR, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_EVENT_VAL, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_REQ_OVR, 0x0);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_TYPE, 0x0);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_CS_STATE, 0x0);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_STATE_SEL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_EVENT_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_CFG_SW_EVENT_OVR, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_CFG__ADR, reg_val);
+
+    // Ensure PHYMSTR ACK from MC is low before proceeding
+    do
+    {
+        reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYMSTR_IF_STA__ADR);
+    } while (GET_REG_FIELD(reg_val, DDR_DFI_PHYMSTR_IF_STA_ACK) != 0x0);
+}
+
+void dfi_ctrlupd_deassert_ack_reg_if(void)
+{
+    uint32_t reg_val;
+
+    // Deassert CTRLUPD ACK
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_ACK_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_EVENT_1_OVR, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_EVENT_1_VAL, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_ACK_OVR, 0x1);
+
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    do
+    {
+        reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_STA__ADR);
+    } while (GET_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_STA_REQ) != 0x0);
+
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_EVENT_1_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_EVENT_1_OVR, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_ACK_OVR, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+}
+
+void dfi_ctrlupd_ack_override_reg_if(bool override, uint8_t val)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_ACK_VAL, val);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_CTRLUPD_IF_CFG_SW_ACK_OVR, override);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_CTRLUPD_IF_CFG__ADR, reg_val);
+}
+
+void dfi_phyupd_req_assert_reg_if(dfi_phyupd_type_t type)
+{
+    uint32_t reg_val;
+
+    // Assert PHYUPD REQ and set type
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_TYPE, type);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_REQ_OVR, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_REQ_VAL, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+}
+
+void dfi_phyupd_req_deassert_reg_if(void)
+{
+    uint32_t reg_val;
+
+    // Deassert PHYUPD REQ
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_REQ_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_EVENT_OVR, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_EVENT_VAL, 0x1);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_REQ_OVR, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_EVENT_VAL, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_CFG_SW_EVENT_OVR, 0x0);
+    reg_write(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_CFG__ADR, reg_val);
+
+    // Ensure PHYUPD ACK from MC is low before proceeding
+    do
+    {
+        reg_val = reg_read(WDDR_MEMORY_MAP_DFI + DDR_DFI_PHYUPD_IF_STA__ADR);
+    } while (GET_REG_FIELD(reg_val, DDR_DFI_PHYUPD_IF_STA_ACK) != 0x0);
 }

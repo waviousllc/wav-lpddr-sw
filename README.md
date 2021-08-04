@@ -28,20 +28,18 @@ drivers in order to provide better abstractions or even combine multiple drivers
 and device to create a higher-level device. Devices sit at the layer above
 drivers.
 
-### Finite State Machines (fsm)
-Finite state machines are the highest level of device abstraction. They provide
-a standard interface for manipulating one or more devices that have a complex
-interaction model. A great example of this is the Frequency Switch FSM which
-relies on PLL and Frequency Switch hardware being in sync. FSMs are built on top
-of the standard FSM module that is part of the RTOS kernel.
+### PHY Firmware (firmware)
+PHY Firmware is the management entity that controls the PHY, as well as performs
+state management. It responds to events from DFI interface (via IRQs) or events
+requested through the PHY Firmware API. The PHY Firmware API encapsulates all PHY
+features that an application can control, such as frequency switch prep.
 
 ### Applications (app)
 Applications are complete programs that are meant to run on LPDDR hardware.
-These applications can be "fully baked" mission type applications (`wddr_boot`)
-or simple apps that test only a specific device or driver. Typically, Wavious
-builds several test applications used to tests SW interaction with various
-software components. For this repository, only mission-mode applications
-have been included.
+Applications should interact with the PHY via the PHY Firmware API. They are
+not able to control or update the PHY directly. Typically, applications can be
+"fully baked" mission type applications (`wddr_boot`) or test applications.
+For this repository, only mission-mode applications have been included.
 
 ## Project Initialization
   - `git clone https://github.com/waviousllc/wav-lpddr-sw.git`
@@ -74,7 +72,8 @@ make
 | CONFIG_CALIBRATE_PLL     |    true        | Enables PLL calibration at boot       |
 | CONFIG_CALIBRATE_ZQCAL   |    true        | Enables ZQCAL calibration at boot     |
 | CONFIG_CALIBRATE_SA      |    true        | Enables Sense Amp calibration at boot |
-| CONFIG_DRAM_TRAIN        |    true        | Enables DRAM Training at boot         |
+| CONFIG_DRAM_TRAIN        |    false       | Enables DRAM Training at boot         |
+| DCONFIG_CAL_PERIODIC     |    false       | Enables PHY Periodic Calibration      |
 
 #### Changing Configurations
 It is recommended that all binaries are built with the default configuration. However,

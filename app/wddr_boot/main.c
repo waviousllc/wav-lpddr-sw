@@ -32,49 +32,34 @@
 
 /* Kernel includes. */
 #include <kernel/io.h>
-#include <kernel/notification.h>
 
-/* LPDDR includes. */
+/* PHY Firmware includes. */
 #include <wddr/memory_map.h>
-#include <wddr/device.h>
-#include <clk/driver.h>
-#include <fsw/driver.h>
+#include <firmware/phy_api.h>
 
 /*******************************************************************************
 **                                   MACROS
 *******************************************************************************/
-#define WDDR_BASE_ADDR              (0x00000000)
-
-// Task priority least to greatest
-#define FSM_TASK_PRIORITY           (tskIDLE_PRIORITY + 4)
-#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 5)
-#define NOTIF_TASK_PRIORITY         (tskIDLE_PRIORITY + 6)
-
-// Event Queues
-#define FSM_TASK_QUEUE_LEN          (20)    // 20 FSM events oustanding at a time
-
+#define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 3)
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
-static void prvSetupHardware( void );
+/** @brief  Centralized shutdown function */
+static void shutdown(uint32_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-static DECLARE_WDDR_TABLE(table);
-/** @note Place in .data section at cost of image size */
-static wddr_dev_t wddr __attribute__ ((section (".data"))) = {0};
-
 extern uint32_t __start;
 img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
     .image_magic = IMAGE_MAGIC,
     .image_hdr_version = IMAGE_VERSION_CURRENT,
     .image_type = IMAGE_TYPE_APP,
-    .version_major = 1,
-    .version_minor = 0,
-    .version_patch = 0,
+    .version_major = FW_VERSION_MAJOR,
+    .version_minor = FW_VERSION_MINOR,
+    .version_patch = FW_VERSION_PATCH,
     .vector_addr = (uint32_t) &__start,
     .device_id = IMAGE_DEVICE_ID_HOST,
     .git_dirty = GIT_DIRTY,
@@ -90,14 +75,8 @@ img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
 *******************************************************************************/
 int main( void )
 {
-    // Setup Hardware
-    prvSetupHardware();
-
-    // Initialize Notification Task
-    xNotificationTaskInit(NOTIF_TASK_PRIORITY, configMINIMAL_STACK_SIZE);
-
-    // Initialize FSM Task
-    xFSMTaskInit(FSM_TASK_PRIORITY, configMINIMAL_STACK_SIZE, FSM_TASK_QUEUE_LEN);
+    // Initialize PHY Firmware
+    firmware_phy_init();
 
     /* At this point, you can create queue,semaphore, task requested for your application */
     xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
@@ -117,38 +96,13 @@ int main( void )
 /*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
-    wddr_init(&wddr, WDDR_BASE_ADDR, &table);
-    if (wddr_boot(&wddr) != WDDR_SUCCESS)
+    if (firmware_phy_start() == pdFAIL)
     {
-        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x10001);
+        shutdown(0x10001);
     }
 
-    vTaskDelete(NULL);
-}
-
-/*-----------------------------------------------------------*/
-static void prvSetupHardware( void )
-{
-    // Initialize
-    common_path_init(&wddr.cmn, WDDR_MEMORY_MAP_CMN);
-    pll_init(&wddr.pll, WDDR_MEMORY_MAP_PLL);
-
-    // Enable Common Block
-    common_path_enable(&wddr.cmn);
-
-    // Boot PLL to set MCU clk @ 384 MHz
-    pll_boot(&wddr.pll);
-
-    // Enable Clocks
-    clk_ctrl_set_pll_clk_en_reg_if(true);
-    clk_ctrl_set_mcu_gfm_sel_reg_if(CLK_MCU_GFM_SEL_PLL_VCO0);
-    clk_cmn_ctrl_set_pll0_div_clk_rst_reg_if(false);
-    clk_cmn_ctrl_set_gfcm_en_reg_if(true);
-
-    // Turn off PHY CLK gating
-    fsw_csp_set_clk_disable_ovr_val_reg_if(false);
-
-    clk_cmn_ctrl_set_pll0_div_clk_en_reg_if(true);
+    // Loop forever
+    while(1);
 }
 
 /*-----------------------------------------------------------*/
@@ -164,9 +118,7 @@ void vApplicationMallocFailedHook( void )
     FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x20001);
-    _exit(1);
+    shutdown(0x20001);
 }
 
 /*-----------------------------------------------------------*/
@@ -192,9 +144,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
-    taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x30001);
-    _exit(1);
+    shutdown(0x30001);
 }
 
 /*-----------------------------------------------------------*/
@@ -221,13 +171,19 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
         return;
     }
 
-    taskDISABLE_INTERRUPTS();
     // Write out the file and line number
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
     while (*pcString != '\0')
     {
         reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
     }
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, 0x40001);
+    shutdown(0x40001);
+}
+
+/*-----------------------------------------------------------*/
+static void shutdown(uint32_t cause)
+{
+    taskDISABLE_INTERRUPTS();
+    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, cause);
     _exit(1);
 }

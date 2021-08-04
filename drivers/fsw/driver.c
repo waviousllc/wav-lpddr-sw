@@ -28,6 +28,39 @@ void fsw_ctrl_set_msr_vco_ovr_reg_if(bool enable)
     reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
 }
 
+void fsw_ctrl_set_msr_toggle_en_reg_if(bool enable)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_MSR_TOGGLE_EN, enable);
+    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+}
+
+void fsw_ctrl_set_vco_toggle_en_reg_if(bool enable)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_VCO_TOGGLE_EN, enable);
+    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+}
+
+void fsw_ctrl_set_prep_done_reg_if(bool done)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PREP_DONE, done);
+    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+}
+
+void fsw_ctrl_set_post_work_done(bool override, bool done)
+{
+    uint32_t reg_val;
+    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE, done);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE_OVR, override);
+    reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+}
+
 void fsw_csp_set_clk_disable_ovr_val_reg_if(bool enable)
 {
     uint32_t reg_val;

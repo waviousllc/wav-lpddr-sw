@@ -8,6 +8,7 @@ CONFIG_CAL_PLL="true"
 CONFIG_CAL_ZQCAL="true"
 CONFIG_CAL_SA="true"
 CONFIG_DRAM_TRAIN="false"
+CONFIG_CAL_PERIODIC="false"
 
 # Common build prep function
 init_build_common() {
@@ -24,6 +25,7 @@ init_lpddr() {
            -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CAL_ZQCAL} \
            -DCONFIG_CALIBRATE_SA=${CONFIG_CAL_SA} \
            -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN} \
+           -DCONFIG_CAL_PERIODIC=${CONFIG_CAL_PERIODIC} \
            -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
   cd ..
 }
@@ -37,6 +39,7 @@ echo "--no-pll-cal      (disables PLL calibration)"
 echo "--no-zqcal-cal    (disables ZQCAL calibration)"
 echo "--no-sa-cal       (disables SA calibration)"
 echo "--dram-train      (enables DRAM training at boot)"
+echo "--periodic-cal    (enables periodic calibration)"
 }
 
 PARAMS=""
@@ -60,6 +63,9 @@ while [ $# -gt 0 ]; do
       ;;
      --dram-train)
       CONFIG_DRAM_TRAIN="true"
+      ;;
+     --periodic-cal)
+      CONFIG_CAL_PERIODIC="true"
       shift 1
       ;;
     -h | --help)
