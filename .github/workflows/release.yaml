@@ -1,0 +1,64 @@
+# This is a workflow to create a wav-lpddr-sw release
+
+name: WAV-LPDDR-SW Release
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on tag events
+  push:
+    tags:
+      - 'v*' # Push events matching release tag
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest source code
+        id: checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
+      - name: Login to Docker Hub
+        id: login
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build binaries in docker image
+        id: docker-run
+        run: |
+          docker run -v ${{ env.GITHUB_WORKSPACE }}:/usr/local/build/src/ waviousllc/riscv-build:latest
+
+      - name: Create archive of images
+        id: archive
+        run: |
+          cd ${{ env.GITHUB_WORKSPACE }}/build/bin/
+          tar -czf ${{ env.GITHUB_WORKSPACE }}/binaries.tgz --owner=0 --group=0 wddr*
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Version ${{ github.ref }} Release
+          draft: true
+          prerelease: false
+
+      - name: Upload Binaries
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: binaries.tgz
+          asset_name: binaries.tgz
+          asset_content_type: application/x-tar
