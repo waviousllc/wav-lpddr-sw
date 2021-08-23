@@ -351,6 +351,9 @@ wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t 
     // Put back to normal state
     fsw_ctrl_set_msr_toggle_en_reg_if(true);
 
+    // Disable previous VCO
+    pll_disable_vco(pll);
+
     return WDDR_SUCCESS;
 }
 
