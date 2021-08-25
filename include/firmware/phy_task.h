@@ -6,6 +6,7 @@
 #ifndef _FIRMWARE_PHY_TASK_H_
 #define _FIRMWARE_PHY_TASK_H_
 
+#include <stdbool.h>
 #include <firmware/firmware.h>
 
 /**
@@ -52,6 +53,18 @@ typedef enum firmware_phy_event
     FW_PHY_EVENT_LP_CTRL_REQ,
     FW_PHY_EVENT_NUM,
 } fw_phy_event_t;
+
+/**
+ * @brief   Firmware PHY Start Configuration Structure
+ *
+ * calibrate    Flag to indicate if PHY should be calibrated.
+ * train_dram   Flag to indicate if PHY should train DRAM.
+ */
+typedef struct fw_phy_start_config
+{
+    bool calibrate;
+    bool train_dram;
+} fw_phy_start_cfg_t;
 
 /**
  * @brief   Firmware PHY Task Initialization

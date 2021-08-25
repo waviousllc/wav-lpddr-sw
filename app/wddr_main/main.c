@@ -54,6 +54,10 @@
 #define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 2)
 #define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 3)
 
+// Boot configuration
+#define BOOT_CALIBRATION            (true)
+#define BOOT_TRAINING               (false)
+
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
@@ -127,8 +131,8 @@ static void vMainTask( void *pvParameters )
     // TODO: Send MSG Interface Ready message
     // TODO: Receive Boot Message to continue
 
-    // Boot PHY
-    if (firmware_phy_start() == pdFAIL)
+    // Boot PHY (calibrate but don't train)
+    if (firmware_phy_start(BOOT_CALIBRATION, BOOT_TRAINING) == pdFAIL)
     {
         shutdown(0x10001);
     }

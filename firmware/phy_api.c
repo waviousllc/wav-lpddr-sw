@@ -30,10 +30,15 @@ void firmware_phy_init(void)
     fw_phy_task_init();
 }
 
-UBaseType_t firmware_phy_start(void)
+UBaseType_t firmware_phy_start(bool calibrate, bool train_dram)
 {
     fw_msg_t msg;
+    fw_phy_start_cfg_t cfg = {
+        .calibrate = calibrate,
+        .train_dram = train_dram,
+    };
     msg.event = FW_PHY_EVENT_BOOT;
+    msg.data = &cfg;
     return __send_fw_msg(&msg, portMAX_DELAY, BOOT_TRY_COUNT);
 }
 

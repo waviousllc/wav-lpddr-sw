@@ -42,6 +42,10 @@
 *******************************************************************************/
 #define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 3)
 
+// Boot configuration
+#define BOOT_CALIBRATION            (true)
+#define BOOT_TRAINING               (false)
+
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
@@ -96,7 +100,8 @@ int main( void )
 /*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
-    if (firmware_phy_start() == pdFAIL)
+    // Boot PHY (calibrate but don't train)
+    if (firmware_phy_start(BOOT_CALIBRATION, BOOT_TRAINING) == pdFAIL)
     {
         shutdown(0x10001);
     }
