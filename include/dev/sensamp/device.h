@@ -6,6 +6,7 @@
 #ifndef _SENSAMP_DEV_H_
 #define _SENSAMP_DEV_H_
 #include <stdint.h>
+#include <stdbool.h>
 #include <error.h>
 #include <sensamp/table.h>
 
@@ -72,15 +73,18 @@ void sensamp_dqbyte_init(sensamp_dqbyte_dev_t *sa_dqbyte, uint32_t base);
  *
  * @details Peforms calibration procedure for all DQ bits in the DQ Byte.
  *
- * @param[in]   sa_dqbyte   pointer to Sensamp device..
- * @param[out]  cal         pointer to calibration table to fill in with
- *                          calibrated codes.
+ * @param[in]       sa_dqbyte   pointer to Sensamp device.
+ * @param[in]       calibrate   flag to indicate if calibration should be
+ *                              peformed.
+ * @param[inout]    cal         pointer to calibration table to fill in with
+ *                              calibrated codes.
  *
  * @return      returns whether calibraton completed successfully.
  * @retval      WDDR_SUCCESS if successful.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t sensamp_dqbyte_cal(sensamp_dqbyte_dev_t *sa_dqbyte,
-                                 sensamp_dqbyte_common_cal_t *cal);
+wddr_return_t sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
+                                       bool calibrate,
+                                       sensamp_dqbyte_common_cal_t *cal);
 
 #endif /* _SENSAMP_DEV_H_ */

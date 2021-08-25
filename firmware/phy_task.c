@@ -402,13 +402,28 @@ static void firmwareTask(void *pvParameters)
 static fw_response_t handle_start_event(__UNUSED__ fw_phy_event_t event,
                                         __UNUSED__ void *data)
 {
+    wddr_boot_cfg_t boot_cfg = WDDR_BOOT_CONFIG_NONE;
+    fw_phy_start_cfg_t *start_cfg = (fw_phy_start_cfg_t *) data;
+
+    if (start_cfg->calibrate)
+    {
+        boot_cfg = UPDATE_BOOT_OPTION(boot_cfg, WDDR_BOOT_OPTION_PLL_CAL, CONFIG_CALIBRATE_PLL);
+        boot_cfg = UPDATE_BOOT_OPTION(boot_cfg, WDDR_BOOT_OPTION_SA_CAL, CONFIG_CALIBRATE_SA);
+        boot_cfg = UPDATE_BOOT_OPTION(boot_cfg, WDDR_BOOT_OPTION_ZQCAL_CAL, CONFIG_CALIBRATE_ZQCAL);
+    }
+
+    if (start_cfg->train_dram)
+    {
+        boot_cfg = UPDATE_BOOT_OPTION(boot_cfg, WDDR_BOOT_OPTION_TRAIN_DRAM, CONFIG_DRAM_TRAIN);
+    }
+
     // Can only call once
     if (fw_manager.status.ready)
     {
         return FW_RESP_FAILURE;
     }
 
-    if (wddr_boot(&wddr) != WDDR_SUCCESS)
+    if (wddr_boot(&wddr, boot_cfg) != WDDR_SUCCESS)
     {
         fw_manager.status.error = true;
         return FW_RESP_FAILURE;

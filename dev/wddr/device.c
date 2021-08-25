@@ -113,19 +113,20 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
     fsw_init(&wddr->fsw);
 }
 
-wddr_return_t wddr_boot(wddr_dev_t *wddr)
+wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
 {
     uint8_t current_vco_id;
 
     // Calibrate all frequencies
-    #if CONFIG_CALIBRATE_PLL
-    for (uint8_t freq_id = 0; freq_id < WDDR_PHY_VALID_FREQ_NUM; freq_id++)
+    if (GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_PLL_CAL))
     {
-        pll_calibrate_vco(&wddr->pll,
-                          &wddr->table->cal.freq[freq_id].pll,
-                          &wddr->table->cfg.freq[freq_id].pll);
+        for (uint8_t freq_id = 0; freq_id < WDDR_PHY_VALID_FREQ_NUM; freq_id++)
+        {
+            pll_calibrate_vco(&wddr->pll,
+                              &wddr->table->cal.freq[freq_id].pll,
+                              &wddr->table->cfg.freq[freq_id].pll);
+        }
     }
-    #endif /* CONFIG_CALIBRATE_PLL */
 
     /**
      * @note Override CS / CKE as not sure of state of memory controller
@@ -163,9 +164,11 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
 
     wddr_clear_fifo_all_channels(wddr);
 
-    #if CONFIG_CALIBRATE_ZQCAL
-    wddr_iocal_calibrate(wddr);
-    #endif /* CONFIG_CALIBRATE_ZQCAL */
+    // Perfrom ZQCAL Calibartion
+    if (GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_ZQCAL_CAL))
+    {
+        wddr_iocal_calibrate(wddr);
+    }
 
     // Set VREF code
     vref_set_code(&wddr->cmn.vref, wddr->table->cal.freq[WDDR_PHY_BOOT_FREQ].common.vref.code);
@@ -178,57 +181,37 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
 
         for (uint8_t byte = 0; byte < WDDR_PHY_DQ_BYTE_NUM; byte++)
         {
-            #if CONFIG_CALIBRATE_SA
-            rx_gb_cfg_t cfg = {
+            rx_gb_cfg_t gb_cfg = {
                 .data_mode = DGB_2TO1_IR,
                 .fifo_mode = FGB_2TO2,
                 .wck_mode = GB_WCK_MODE_0,
             };
-            rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox, WDDR_SLICE_TYPE_DQ, &cfg);
-            rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox, WDDR_SLICE_TYPE_DQS, &cfg);
+
+            rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox, WDDR_SLICE_TYPE_DQ, &gb_cfg);
+            rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox, WDDR_SLICE_TYPE_DQS, &gb_cfg);
 
             // Perform Sense Amp calibration
-            sensamp_dqbyte_cal(&wddr->channel[channel].dq[byte].rx.sa,
-                                   &wddr->table->cal.common.channel[channel].dq[byte].rx.sa);
+            sensamp_dqbyte_configure(&wddr->channel[channel].dq[byte].rx.sa,
+                                     GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_SA_CAL) == 1,
+                                     &wddr->table->cal.common.channel[channel].dq[byte].rx.sa);
 
             // Reset Gearbox settings
             rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox,
-                                  WDDR_SLICE_TYPE_DQ,
-                                  &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].channel[channel].dq[byte].rx.rank_cmn.cmn.gearbox);
+                                WDDR_SLICE_TYPE_DQ,
+                                &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].channel[channel].dq[byte].rx.rank_cmn.cmn.gearbox);
             rx_gb_set_mode_reg_if(&wddr->channel[channel].dq[byte].rx.gearbox,
-                                  WDDR_SLICE_TYPE_DQS,
-                                  &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].channel[channel].dq[byte].rx.rank_cmn.cmn.gearbox);
-            #else
-            // Write from table to PHY
-            for (int8_t msr = WDDR_MSR_1; msr >= WDDR_MSR_0; msr--)
-            {
-                sensamp_dqbyte_set_msr_reg_if(&wddr->channel[channel].dq[byte].rx.sa, (wddr_msr_t) msr);
-                for (uint8_t sa_index = 0; sa_index < WDDR_PHY_CFG; sa_index++)
-                {
-                    for (uint8_t rank = 0; rank < WDDR_PHY_RANK; rank++)
-                    {
-                        sensamp_dqbyte_dev_t *p_sa_byte = &wddr->channel[channel].dq[byte].rx.sa;
-                        sensamp_dqbyte_common_cal_t *p_sa_byte_cal = &wddr->table->cal.common.channel[channel].dq[byte].rx.sa;
-                        for (uint8_t bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
-                        {
-                            sensamp_dqbit_set_cal_code_reg_if(&p_sa_byte->rank[rank].dq.bit[bit_index],
-                                                            (sensamp_index_t) sa_index,
-                                                            p_sa_byte_cal->dq[rank][bit_index].code[sa_index],
-                                                            false);
-                        } // Bit loop
-                    } // Rank loop
-                } // SA Index loop
-            } // MSR loop
-            #endif /* CONFIG_CALIBRATE_SA */
+                                WDDR_SLICE_TYPE_DQS,
+                                &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].channel[channel].dq[byte].rx.rank_cmn.cmn.gearbox);
         } // DQ Byte loop
 
         // Remove Chip Select Override
         wddr_set_chip_select_reg_if(wddr, channel, WDDR_RANK_0, false);
     } // Channel loop
 
-    #if CONFIG_DRAM_TRAIN
-    wddr_train(wddr);
-    #endif /* CONFIG_DRAM_TRAIN */
+    if (GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_TRAIN_DRAM))
+    {
+        wddr_train(wddr);
+    }
 
     // Prime DFI buffer
     wddr_dfi_buffer_prime(&wddr->dfi.dfi_buffer);

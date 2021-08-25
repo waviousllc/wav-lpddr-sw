@@ -16,6 +16,7 @@
 #include <pll/device.h>
 #include <wddr/phy_config.h>
 #include <wddr/table.h>
+#include "boot_options.h"
 
 /**
  * @brief   Channel Structure
@@ -91,12 +92,13 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table);
  * @note    Should only be called by firmware.
  *
  * @param[in]   wddr    pointer to WDDR device.
+ * @param[in]   cfg     boot configuration.
  *
  * @return      returns whether boot completed successfully.
  * @retval      WDDR_SUCCESS if successful.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t wddr_boot(wddr_dev_t *wddr);
+wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg);
 
 /**
  * @brief   Wavious DDR (WDDR) Prep Switch

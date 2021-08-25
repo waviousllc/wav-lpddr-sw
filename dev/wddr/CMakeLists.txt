@@ -16,15 +16,6 @@ add_library(
     ${SRC}
 )
 
-target_compile_definitions(
-    ${LIB_NAME}
-    PRIVATE
-    -DCONFIG_CALIBRATE_PLL=${CONFIG_CALIBRATE_PLL}
-    -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CALIBRATE_ZQCAL}
-    -DCONFIG_CALIBRATE_SA=${CONFIG_CALIBRATE_SA}
-    -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN}
-)
-
 target_include_directories(
     ${LIB_NAME}
     PUBLIC

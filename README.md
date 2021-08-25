@@ -84,7 +84,7 @@ After running the commands given in the [Building](#building) section of this do
 the configuration can be updated as follows:
 ~~~~
 cd build
-cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false>
+cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false> -DCONFIG_CAL_PERIODIC=<true|false>
 make
 ~~~~
 

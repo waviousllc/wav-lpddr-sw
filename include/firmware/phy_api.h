@@ -6,7 +6,7 @@
 #ifndef _FIRMWARE_PHY_API_H_
 #define _FIRMWARE_PHY_API_H_
 
-#include <FreeRTOS.h>
+#include <stdbool.h>
 
 /**
  * @brief   Firmware PHY Initialization
@@ -24,11 +24,14 @@ void firmware_phy_init(void);
  * @details Starts the PHY Firmware. Must be called after FreeRTOS threads
  *          are running. Typically, this would be called by the Main Task.
  *
+ * @param[in]   calibrate   flag to indicate if PHY should be calibrated.
+ * @param[in]   train_dram  flag to indicate if PHY should train DRAM.
+ *
  * @return  returns whether PHY Firmware was started successfully.
  * @retval  pdPASS if started successfully.
  * @retval  pdFAIL otherwise.
  */
-UBaseType_t firmware_phy_start(void);
+UBaseType_t firmware_phy_start(bool calibrate, bool train_dram);
 
 /**
  * @brief   Firmware PHY Prepare Frequency Switch
