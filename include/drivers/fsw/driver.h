@@ -75,7 +75,17 @@ void fsw_ctrl_set_prep_done_reg_if(bool done);
  *
  * @return      void.
  */
-void fsw_ctrl_set_post_work_done(bool override, bool done);
+void fsw_ctrl_set_post_work_done_reg_if(bool override, bool done);
+
+/**
+ * @brief   HW Frequency Switch Get Current MSR Register Interface
+ *
+ * @details Gets the current Mode Switch Register (MSR) in the PHY.
+ *
+ * @return  returns current Mode Switch Register value.
+ * @retval  Possible MSRs values are 0 and 1.
+ */
+uint8_t fsw_ctrl_get_current_msr_reg_if(void);
 
 /**
  * @brief   HW Frequency Switch (FSW) Clock Disable Override Register Interface

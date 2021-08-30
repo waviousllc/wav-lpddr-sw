@@ -85,6 +85,16 @@ void fsw_switch_to_dfi_mode(fsw_dev_t *dev)
     dev->mode = FSW_MODE_DFI;
 }
 
+wddr_msr_t fsw_get_current_msr(__UNUSED__ fsw_dev_t *dev)
+{
+    return fsw_ctrl_get_current_msr_reg_if();
+}
+
+wddr_msr_t fsw_get_next_msr(fsw_dev_t *dev)
+{
+    return !fsw_get_current_msr(dev);
+}
+
 static void handle_init_start_irq(__UNUSED__ int irq_num, __UNUSED__ void *args)
 {
     BaseType_t xHigherPriorityTaskWoken;

@@ -605,17 +605,20 @@ static void fsw_prepare_switch_handler(__UNUSED__ void *currentStateData,
                                        __UNUSED__ void *newStateData)
 {
     __UNUSED__ wddr_return_t ret;
+    wddr_msr_t next_msr;
     uint8_t freq_id = (uint8_t) (uintptr_t) event->data;
 
     // Make sure INIT_START IRQ not enabled
     disable_irq(MCU_FAST_IRQ_INIT_START);
 
-    ret = wddr_prep_switch(&wddr, freq_id);
+    // Prepare PHY
+    next_msr = fsw_get_next_msr(&wddr.fsw);
+    ret = wddr_prep_switch(&wddr, freq_id, next_msr);
     configASSERT(ret == WDDR_SUCCESS);
 
     // Indicate Prep is done
     fsw_ctrl_set_prep_done_reg_if(true);
-    fsw_ctrl_set_post_work_done(false, 0x0);
+    fsw_ctrl_set_post_work_done_reg_if(false, 0x0);
 
     // Enable INIT_START IRQ
     enable_irq(MCU_FAST_IRQ_INIT_START);
@@ -634,10 +637,10 @@ static void fsw_post_switch_handler(__UNUSED__ void *currentStateData,
     pll_set_lock_interrupt_state(&wddr.pll, false);
 
     // Indicate Post Work Done
-    fsw_ctrl_set_post_work_done(false, 0x1);
+    fsw_ctrl_set_post_work_done_reg_if(false, 0x1);
 
     // Put back in default state
-    fsw_ctrl_set_post_work_done(false, 0x0);
+    fsw_ctrl_set_post_work_done_reg_if(false, 0x0);
     fsw_ctrl_set_prep_done_reg_if(false);
     fsw_ctrl_set_msr_toggle_en_reg_if(0x1);
     fsw_ctrl_set_vco_toggle_en_reg_if(0x1);
@@ -665,7 +668,7 @@ static void fsw_pending_entry_handler(__UNUSED__ void *stateData,
     } while (init_complete != 0x1);
 
     // Set Post Work Done Override
-    fsw_ctrl_set_post_work_done(true, 0x0);
+    fsw_ctrl_set_post_work_done_reg_if(true, 0x0);
 
     // Send MRW from DFI Buffer (This was filled during prep)
     dfi_buffer_send_packets(&wddr.dfi.dfi_buffer, false);

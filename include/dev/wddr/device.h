@@ -107,12 +107,15 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr);
  *
  * @param[in]   wddr    pointer to WDDR device.
  * @param[in]   freq_id ID of frequency to prepare.
+ * @param[in]   msr     mode switch register to prepare.
  *
  * @return      returns whether prep completed successfully.
  * @retval      WDDR_SUCCESS if successful.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id);
+wddr_return_t wddr_prep_switch(wddr_dev_t *wddr,
+                               uint8_t freq_id,
+                               wddr_msr_t msr);
 
 /**
  * @brief   Wavious DDR (WDDR) Software Frequency Switch

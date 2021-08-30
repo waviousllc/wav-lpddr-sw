@@ -6,6 +6,8 @@
 #ifndef _FSW_DEV_H_
 #define _FSW_DEV_H_
 
+#include <wddr/phy_defs.h>
+
 /**
  * @brief   Frequency Switch Modes
  *
@@ -17,7 +19,6 @@ typedef enum fsw_mode
     FSW_MODE_SW,
     FSW_MODE_DFI,
 } fsw_mode_t;
-
 
 /**
  * @brief   Frequency Switch Device Structure
@@ -54,5 +55,30 @@ void fsw_init(fsw_dev_t *dev);
  * @return  void.
  */
 void fsw_switch_to_dfi_mode(fsw_dev_t *dev);
+
+/**
+ * @brief   Frequency Switch Get Current Mode Switch Register (MSR)
+ *
+ * @details Returns the current Mode Switch Register configured in the PHY.
+ *          PHY supports two concurrent configurations. The MSR indicates which
+ *          of the configurations the PHY uses currently.
+ *
+ * @return  returns current Mode Switch Register value.
+ * @retval  possible values are WDDR_MSR_0 and WDDR_MSR_1.
+ */
+wddr_msr_t fsw_get_current_msr(fsw_dev_t *dev);
+
+/**
+ * @brief   Frequency Switch Get Next Mode Switch Register (MSR)
+ *
+ * @details Returns the next Mode Switch Register configured in the PHY.
+ *          PHY supports two concurrent configurations. The MSR indicates which
+ *          of the configurations the PHY uses currently. This function returns
+ *          the next MSR not in use.
+ *
+ * @return  returns current Mode Switch Register value.
+ * @retval  possible values are WDDR_MSR_0 and WDDR_MSR_1.
+ */
+wddr_msr_t fsw_get_next_msr(fsw_dev_t *dev);
 
 #endif /* _FSW_DEV_H_ */
