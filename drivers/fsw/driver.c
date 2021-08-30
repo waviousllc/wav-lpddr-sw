@@ -52,13 +52,19 @@ void fsw_ctrl_set_prep_done_reg_if(bool done)
     reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
 }
 
-void fsw_ctrl_set_post_work_done(bool override, bool done)
+void fsw_ctrl_set_post_work_done_reg_if(bool override, bool done)
 {
     uint32_t reg_val;
     reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE, done);
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_FSW_CTRL_CFG_PSTWORK_DONE_OVR, override);
     reg_write(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_CFG__ADR, reg_val);
+}
+
+uint8_t fsw_ctrl_get_current_msr_reg_if(void)
+{
+    // Double flip to ensure only read as one or zero
+    return !!GET_REG_FIELD(reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_STA__ADR), DDR_FSW_CTRL_STA_CMN_MSR);
 }
 
 void fsw_csp_set_clk_disable_ovr_val_reg_if(bool enable)

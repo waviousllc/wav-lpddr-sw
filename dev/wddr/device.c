@@ -248,23 +248,16 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr)
     return WDDR_SUCCESS;
 }
 
-wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id)
+wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
 {
-    uint32_t reg_val;
-    uint8_t next_msr;
-
     if (freq_id >= WDDR_PHY_FREQ_NUM ||
         !wddr->table->valid[freq_id])
     {
         return WDDR_ERROR;
     }
 
-    // Get next MSR
-    reg_val = reg_read(WDDR_MEMORY_MAP_FSW + DDR_FSW_CTRL_STA__ADR);
-    next_msr = !GET_REG_FIELD(reg_val, DDR_FSW_CTRL_STA_CMN_MSR);
-
     // Configure PHY
-    wddr_configure_phy(wddr, freq_id, next_msr);
+    wddr_configure_phy(wddr, freq_id, msr);
 
     // Prepare MRW sequence in DFI Buffer
     wddr_prep_freq_switch_mrw_update(wddr,
