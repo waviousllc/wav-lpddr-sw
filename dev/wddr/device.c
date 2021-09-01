@@ -34,7 +34,6 @@
 #include <wddr/driver.h>
 #include <wddr/memory_map.h>
 #include <wddr/irq_map.h>
-#include <wddr/notification_map.h>
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
