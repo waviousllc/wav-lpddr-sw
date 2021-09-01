@@ -82,6 +82,16 @@ void wddr_set_chip_select_reg_if(wddr_dev_t *wddr, wddr_channel_t channel, wddr_
     wddr_set_channel_top_cfg_reg_if(wddr, channel, ca_reg_val, dq_reg_val);
 }
 
+void wddr_read_bscan_result_reg_if(wddr_dev_t *wddr, wddr_dq_byte_t dq_byte, wddr_channel_t channel, uint8_t *result)
+{
+    // Read BSCAN
+    *result = reg_read(wddr->base +
+                       WDDR_MEMORY_MAP_PHY_CH_START +
+                       WDDR_MEMORY_MAP_PHY_CH_OFFSET * channel +
+                       WDDR_MEMORY_MAP_PHY_DQ_OFFSET * dq_byte +
+                       DDR_DQ_DQ_RX_BSCAN_STA__ADR);
+}
+
 static void wddr_set_channel_top_cfg_reg_if(wddr_dev_t *wddr,
                                             wddr_channel_t channel,
                                             uint32_t ca_reg_val,
