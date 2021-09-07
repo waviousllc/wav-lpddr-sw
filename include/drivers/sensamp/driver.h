@@ -24,19 +24,6 @@ void sensamp_dqbyte_init_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
                                 uint32_t base);
 
 /**
- * @brief   Sense Amp (Sensamp) DQ Byte Set MSR Register Interface
- *
- * @details Configures Sensamp DQ Byte device for give mode set register value.
- *
- * @param[in]   sa_dqbyte   pointer to Sensamp device.
- * @param[in]   msr         MSR value to configure.
- *
- * @return      void
- */
-void sensamp_dqbyte_set_msr_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
-                                   wddr_msr_t msr);
-
-/**
  * @brief   Sense Amp (Sensamp) DQ Bit Get Status Register Interface
  *
  * @details Returns Sensamp device status via CSR for a given bit and SA index.
@@ -68,20 +55,31 @@ void sensamp_dqbyte_get_status_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
 wddr_return_t sensamp_dqbyte_set_state_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
                                               sensamp_state_t state);
 /**
- * @brief   Sense Amp (Sensamp) DQ Bit Set Code Register Interface
+ * @brief   Sense Amp (Sensamp) DQ Byte Set Code Register Interface
  *
- * @details Sets the given code via CSR for the given sensamp index.
+ * @details Sets the given code via CSR for the given Sensamp Bit index.
  *
-  * @param[in]  sa_dqbit    pointer to Sensamp DQ Bit device.
-  * @param[in]  sa_index    sensamp index to update.
-  * @param[in]  code        code to set.
-  * @param[in]  clear       flag to indicate if other codes should be cleared.
-  *
-  * @return     void
-  */
-void sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
-                                       sensamp_index_t sa_index,
-                                       uint8_t code,
-                                       bool clear);
+ * @note    This function sets the code for both Mode Set Registers (MSRs). Be
+ *          mindful that calling this function while the PHY is running could
+ *          result in undefined behavior. Since Sense Amp configuration is
+ *          common for all frequencies, there isn't a need to update the cal
+ *          code during frequency switches. Thus, MSRs can be written once
+ *          prior to starting the PHY, i.e. during boot.
+
+ * @param[in]   sa_dqbyte   pointer to Sensamp DQ Bit device.
+ * @param[in]   rank        which rank to set.
+ * @param[in]   bit         which bit to set cal code for.
+ * @param[in]   sa_index    sensamp index to update.
+ * @param[in]   code        code to set.
+ * @param[in]   clear       flag to indicate if other codes should be cleared.
+ *
+ * @return     void
+ */
+void sensamp_dqbyte_set_cal_code_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
+                                        wddr_rank_t rank,
+                                        uint8_t bit,
+                                        sensamp_index_t sa_index,
+                                        uint8_t code,
+                                        bool clear);
 
 #endif /* _SENSAMP_DRIVER_H_ */

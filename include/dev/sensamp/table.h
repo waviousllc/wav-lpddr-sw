@@ -41,10 +41,10 @@ typedef struct sensamp_dqbit_cal_t {
  * @details Calibration for entire DQ Byte that is common across all
  *          frequencies.
  *
- * dq       Array of DQBit cal codes for each Rank and DQ Slice.
+ * dq       Array of DQBit cal codes for each DQ Slice.
  */
 typedef struct sensamp_dqbyte_common_cal_t {
-    sensamp_dqbit_cal_t dq[WDDR_PHY_RANK][WDDR_PHY_DQ_SLICE_NUM];
+    sensamp_dqbit_cal_t dq[WDDR_PHY_DQ_SLICE_NUM];
 } sensamp_dqbyte_common_cal_t;
 
 #endif /* _SENSAMP_TABLE_H_ */
