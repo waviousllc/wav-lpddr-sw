@@ -8,9 +8,6 @@
 
 #define WAV_SA_MIN_CAL_CODE (0)
 #define WAV_SA_MAX_CAL_CODE (31)
-#define WAV_SA_MID_CAL_CODE ((WAV_SA_MAX_CAL_CODE - WAV_SA_MIN_CAL_CODE + 1) / 2)
-#define WAV_SA_CAL_DIR_NEG  (0)
-#define WAV_SA_CAL_DIR_POS  (1)
 
 /**
  * @brief   Sense Amp (Sensamp) DQ Byte Configure (Internal)
@@ -27,7 +24,7 @@
  */
 static wddr_return_t __sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
                                                 bool calibrate,
-                                                sensamp_dqbit_cal_t data[WDDR_PHY_RANK][WDDR_PHY_DQ_SLICE_NUM]);
+                                                sensamp_dqbit_cal_t data[WDDR_PHY_DQ_SLICE_NUM]);
 
 void sensamp_dqbyte_init(sensamp_dqbyte_dev_t *sa_dqbyte, uint32_t base)
 {
@@ -47,16 +44,14 @@ wddr_return_t sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
 
 static wddr_return_t __sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
                                                 bool calibrate,
-                                                sensamp_dqbit_cal_t data[WDDR_PHY_RANK][WDDR_PHY_DQ_SLICE_NUM])
+                                                sensamp_dqbit_cal_t data[WDDR_PHY_DQ_SLICE_NUM])
 {
     uint8_t val;
     uint8_t code_down, code_up, code_avg, cal_code;
-    uint8_t bit_index, sa_index, rank_index;
-    sensamp_dqbit_dev_t *sensamp_dqbit;
+    uint8_t bit_index, sa_index;
 
     for (bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
     {
-        sensamp_dqbit = &sa_dqbyte->rank[WDDR_RANK_0].dq.bit[bit_index];
 
         for (sa_index = SA_0_INDEX; sa_index < WDDR_PHY_CFG; sa_index++)
         {
@@ -65,7 +60,7 @@ static wddr_return_t __sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
             {
                 for (cal_code = WAV_SA_MIN_CAL_CODE; cal_code <= WAV_SA_MAX_CAL_CODE; cal_code++)
                 {
-                    sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit, sa_index, cal_code, true);
+                    sensamp_dqbyte_set_cal_code_reg_if(sa_dqbyte, WDDR_RANK_0, bit_index, sa_index, cal_code, true);
                     sensamp_dqbyte_get_status_reg_if(sa_dqbyte, bit_index, (sensamp_index_t) sa_index, &val);
 
                     // val for first cal_code must be 1
@@ -88,7 +83,7 @@ static wddr_return_t __sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
                 cal_code = WAV_SA_MAX_CAL_CODE;
                 do
                 {
-                    sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit, sa_index, cal_code, true);
+                    sensamp_dqbyte_set_cal_code_reg_if(sa_dqbyte, WDDR_RANK_0, bit_index, sa_index, cal_code, true);
                     sensamp_dqbyte_get_status_reg_if(sa_dqbyte, bit_index, (sensamp_index_t) sa_index, &val);
 
                     // val for first cal_code must be 1
@@ -109,19 +104,24 @@ static wddr_return_t __sensamp_dqbyte_configure(sensamp_dqbyte_dev_t *sa_dqbyte,
 
                 code_down = cal_code;
                 code_avg = (code_down + code_up) / 2;
+
                 // save code into calibration table
-                data[rank_index][bit_index].code[sa_index] = code_avg;
+                data[bit_index].code[sa_index] = code_avg;
+
             } // if (calibrate)
 
             // Update value for RANK 0 and RANK 1
-            for (rank_index = WDDR_RANK_0; rank_index < WDDR_PHY_RANK; rank_index++)
+            for (uint8_t rank_index = WDDR_RANK_0; rank_index < WDDR_PHY_RANK; rank_index++)
             {
-                sensamp_dqbit_set_cal_code_reg_if(&sa_dqbyte->rank[rank_index].dq.bit[bit_index],
-                                                  sa_index,
-                                                  data[rank_index][bit_index].code[sa_index],
-                                                  false);
+                sensamp_dqbyte_set_cal_code_reg_if(sa_dqbyte,
+                                                   rank_index,
+                                                   bit_index,
+                                                   sa_index,
+                                                   data[bit_index].code[sa_index],
+                                                   false);
             }
         }
     }
+
     return WDDR_SUCCESS;
 }

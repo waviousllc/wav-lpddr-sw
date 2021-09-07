@@ -168,6 +168,7 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
     if (GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_ZQCAL_CAL))
     {
         wddr_iocal_calibrate(wddr);
+        wddr_iocal_update_phy(wddr);
     }
 
     // Set VREF code

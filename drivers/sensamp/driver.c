@@ -7,17 +7,17 @@
 #include <wddr/memory_map.h>
 #include <kernel/io.h>
 
-#define SA_ENABLE       (0x1)
-#define SA_DISABLE      (0x0)
-#define WAV_SA_MIN_CAL_CODE (0)
-#define WAV_SA_MAX_CAL_CODE (31)
-#define WAV_SA_MID_CAL_CODE ((WAV_SA_MAX_CAL_CODE - WAV_SA_MIN_CAL_CODE + 1) / 2)
-#define WAV_SA_CAL_DIR_NEG  (0)
-#define WAV_SA_CAL_DIR_POS  (1)
+#define SA_ENABLE                   (0x1)
+#define SA_DISABLE                  (0x0)
+#define WAV_SA_MIN_CAL_CODE         (0)
+#define WAV_SA_MAX_CAL_CODE         (31)
+#define WAV_SA_MID_CAL_CODE         ((WAV_SA_MAX_CAL_CODE - WAV_SA_MIN_CAL_CODE + 1) / 2)
+#define WAV_SA_CAL_DIR_NEG          (0)
+#define WAV_SA_CAL_DIR_POS          (1)
 
 // Base
-#define SA_DQ_BIT_BASE__ADDR           (DDR_DQ_DQ_RX_SA_M0_R0_CFG_0__ADR)
-#define SA_DQ_BIT_STA_BASE__ADDR       (DDR_DQ_DQ_RX_SA_STA_0__ADR)
+#define SA_DQ_BIT_BASE__ADDR        (DDR_DQ_DQ_RX_SA_M0_R0_CFG_0__ADR)
+#define SA_DQ_BIT_STA_BASE__ADDR    (DDR_DQ_DQ_RX_SA_STA_0__ADR)
 
 // Mode, rank, bit offsets
 // DQ
@@ -25,9 +25,14 @@
 #define SA_DQ_RANK__OFFSET          (DDR_DQ_DQ_RX_SA_M0_R1_CFG_0__ADR - DDR_DQ_DQ_RX_SA_M0_R0_CFG_0__ADR)
 #define SA_DQ_MODE__OFFSET          (DDR_DQ_DQ_RX_SA_M1_R0_CFG_0__ADR - DDR_DQ_DQ_RX_SA_M0_R0_CFG_0__ADR)
 
-#define SA_DQ_STA_BIT__OFFSET       (DDR_DQ_DQ_RX_SA_STA_1__ADR       - DDR_DQ_DQ_RX_SA_STA_0__ADR)
+#define SA_DQ_STA_BIT__OFFSET       (DDR_DQ_DQ_RX_SA_STA_1__ADR - DDR_DQ_DQ_RX_SA_STA_0__ADR)
 
 #define SA_DQS_CMN_BASE__ADDR       (DDR_DQ_DQS_RX_SA_CMN_CFG__ADR)
+
+#define SA_DQ_BIT_ADDR(sa_dqbit, msr, rank, bit)                               \
+    ((sa_dqbit->base & ~WDDR_MEMORY_MAP_REL_MASK) +                            \
+    SA_DQ_BIT_BASE__ADDR + bit * SA_DQ_BIT__OFFSET +                           \
+    rank * SA_DQ_RANK__OFFSET + msr * SA_DQ_MODE__OFFSET)
 
 /**
  * @brief   Sensamp DQ Bit Initialization Register Interface
@@ -47,38 +52,22 @@ static void sensamp_dqbit_init_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
                                       wddr_rank_t rank);
 
 /**
- * @brief   Sensamp DQ Bit Set MSR Register Interface
+ * @brief   Sense Amp (Sensamp) DQ Bit Set Code Register Interface
  *
- * @details Configures Sensamp DQ Bit for given MSR value.
+ * @details Sets the given code via CSR for the given sensamp index.
  *
- * @param[in]   sa_dqbit    pointer to Sensamp DQ Bit device.
- * @param[in]   msr         MSR to configure.
- * @param[in]   bit         bit index of Sensamp DQ bit device.
- * @param[in]   rank        rank of Sensamp DQ Bit device.
- *
- * @return      void
- */
-static void sensamp_dqbit_set_msr_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
-                                         wddr_msr_t msr,
-                                         uint8_t bit,
-                                         wddr_rank_t rank);
+  * @param[in]  sa_dqbit    pointer to Sensamp DQ Bit device.
+  * @param[in]  sa_index    sensamp index to update.
+  * @param[in]  code        code to set.
+  * @param[in]  clear       flag to indicate if other codes should be cleared.
+  *
+  * @return     void
+  */
+static void sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
+                                              sensamp_index_t sa_index,
+                                              uint8_t code,
+                                              bool clear);
 
-void sensamp_dqbyte_set_msr_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
-                                   wddr_msr_t msr)
-{
-    uint8_t bit_index, rank_index;
-    for (rank_index = 0; rank_index < WDDR_PHY_RANK; rank_index++)
-    {
-        for (bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
-        {
-            sensamp_dqbit_set_msr_reg_if(&sa_dqbyte->rank[rank_index].dq.bit[bit_index],
-                                         msr,
-                                         bit_index,
-                                         rank_index);
-        }
-    }
-
-}
 
 void sensamp_dqbyte_init_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
                                 uint32_t base)
@@ -171,10 +160,24 @@ wddr_return_t sensamp_dqbyte_set_state_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
     return WDDR_SUCCESS;
 }
 
-void sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
-                                       sensamp_index_t sa_index,
-                                       uint8_t code,
-                                       bool clear)
+void sensamp_dqbyte_set_cal_code_reg_if(sensamp_dqbyte_dev_t *sa_dqbyte,
+                                        wddr_rank_t rank,
+                                        uint8_t bit,
+                                        sensamp_index_t sa_index,
+                                        uint8_t code,
+                                        bool clear)
+{
+    sensamp_dqbit_set_cal_code_reg_if(&sa_dqbyte->rank[rank].dq.bit[bit],
+                                      sa_index,
+                                      code,
+                                      clear);
+}
+
+
+static void sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
+                                              sensamp_index_t sa_index,
+                                              uint8_t code,
+                                              bool clear)
 {
     uint32_t reg_val = 0;
     uint32_t cal_code;
@@ -218,7 +221,9 @@ void sensamp_dqbit_set_cal_code_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
             return;
     }
 
+    // Set Both MSRs
     reg_write(sa_dqbit->base, reg_val);
+    reg_write(sa_dqbit->base + SA_DQ_MODE__OFFSET, reg_val);
 }
 
 static void sensamp_dqbit_init_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
@@ -226,16 +231,6 @@ static void sensamp_dqbit_init_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
                                       uint8_t bit,
                                       wddr_rank_t rank)
 {
-    sa_dqbit->base = base;
-    sensamp_dqbit_set_msr_reg_if(sa_dqbit, WDDR_MSR_0, bit, rank);
-}
-
-static void sensamp_dqbit_set_msr_reg_if(sensamp_dqbit_dev_t *sa_dqbit,
-                                         wddr_msr_t msr,
-                                         uint8_t bit,
-                                         wddr_rank_t rank)
-{
-    sa_dqbit->base = (sa_dqbit->base & ~WDDR_MEMORY_MAP_REL_MASK) +
-                      SA_DQ_BIT_BASE__ADDR + bit * SA_DQ_BIT__OFFSET +
-                      rank * SA_DQ_RANK__OFFSET + msr * SA_DQ_MODE__OFFSET;
+    // base address is relative to WDDR_MSR_0
+    sa_dqbit->base = base + SA_DQ_BIT_ADDR(sa_dqbit, WDDR_MSR_0, rank, bit);
 }
