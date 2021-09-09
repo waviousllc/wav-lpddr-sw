@@ -112,7 +112,7 @@ typedef struct command_t
 {
     command_type_t  command_type;
     command_frame_t address[MAX_COMMAND_FRAMES];
-    command_data_t  *data;
+    const command_data_t  *data;
 } command_t;
 
 /**

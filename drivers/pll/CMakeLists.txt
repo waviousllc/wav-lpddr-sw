@@ -9,6 +9,7 @@ set(
     INCLUDE_DIRECTORY
     ${WAV_WDDR_TOP_LEVEL}/include/drivers
     ${WAV_WDDR_TOP_LEVEL}/include/dev
+    ${WAV_WDDR_TOP_LEVEL}/include/table
     ${WAV_WDDR_TOP_LEVEL}/include
 )
 

@@ -1,7 +1,7 @@
 set(LIB_NAME  dfi)
 set(
     SRC
-    ${CMAKE_CURRENT_LIST_DIR}/buffer_device.c
+    ${CMAKE_CURRENT_LIST_DIR}/buffer.c
     ${CMAKE_CURRENT_LIST_DIR}/command.c
     ${CMAKE_CURRENT_LIST_DIR}/device.c
     ${CMAKE_CURRENT_LIST_DIR}/packet.c

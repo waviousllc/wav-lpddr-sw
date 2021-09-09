@@ -30,10 +30,12 @@ add_library(
 target_link_libraries(
     ${LIB_NAME}
     wddr_driver
-    path
     dfi
     pll
     dram
     wddr_ext
     fsw
+    cmn
+    ctrl
+    channel
 )
