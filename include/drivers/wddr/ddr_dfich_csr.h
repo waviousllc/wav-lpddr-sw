@@ -542,4 +542,251 @@
 #define DDR_DFICH_CTRL5_M1_CFG__MSK                                                                          (  0x3F3F3F3F )
 
 
+// Word Address 0x00000098 : DDR_DFICH_MISR_0_CFG (RW)
+#define DDR_DFICH_MISR_0_CFG_LFSR_CLEAR__MSK                                                                 (  0x00000001 )
+#define DDR_DFICH_MISR_0_CFG_LFSR_CLEAR__SHFT                                                                (  0x00000000 )
+#define DDR_DFICH_MISR_0_CFG_LFSR_LD_SEED__MSK                                                               (  0x00000002 )
+#define DDR_DFICH_MISR_0_CFG_LFSR_LD_SEED__SHFT                                                              (  0x00000001 )
+#define DDR_DFICH_MISR_0_CFG_MISR_ENABLE__MSK                                                                (  0x000001F0 )
+#define DDR_DFICH_MISR_0_CFG_MISR_ENABLE__SHFT                                                               (  0x00000004 )
+#define DDR_DFICH_MISR_0_CFG__ADR                                                                            (  0x00000098 )
+#define DDR_DFICH_MISR_0_CFG__WIDTH                                                                          (   9 )
+#define DDR_DFICH_MISR_0_CFG__POR                                                                            (  0x00000000 )
+#define DDR_DFICH_MISR_0_CFG__MSK                                                                            (  0x000001F3 )
+
+
+// Word Address 0x0000009c : DDR_DFICH_MISR_1_CFG (RW)
+#define DDR_DFICH_MISR_1_CFG_LFSR_SEED_LO__MSK                                                               (  0xFFFFFFFF )
+#define DDR_DFICH_MISR_1_CFG_LFSR_SEED_LO__SHFT                                                              (  0x00000000 )
+#define DDR_DFICH_MISR_1_CFG__ADR                                                                            (  0x0000009c )
+#define DDR_DFICH_MISR_1_CFG__WIDTH                                                                          (  32 )
+#define DDR_DFICH_MISR_1_CFG__POR                                                                            (  0x00000000 )
+#define DDR_DFICH_MISR_1_CFG__MSK                                                                            (  0xFFFFFFFF )
+
+
+// Word Address 0x000000a0 : DDR_DFICH_MISR_2_CFG (RW)
+#define DDR_DFICH_MISR_2_CFG_LFSR_SEED_HI__MSK                                                               (  0x0000000F )
+#define DDR_DFICH_MISR_2_CFG_LFSR_SEED_HI__SHFT                                                              (  0x00000000 )
+#define DDR_DFICH_MISR_2_CFG__ADR                                                                            (  0x000000a0 )
+#define DDR_DFICH_MISR_2_CFG__WIDTH                                                                          (   4 )
+#define DDR_DFICH_MISR_2_CFG__POR                                                                            (  0x00000000 )
+#define DDR_DFICH_MISR_2_CFG__MSK                                                                            (  0x0000000F )
+
+
+// Word Address 0x000000a4 : DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA (R)
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA__ADR                                                              (  0x000000a4 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000a8 : DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA (R)
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA__ADR                                                              (  0x000000a8 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ0_W3_TO_W0_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000ac : DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA (R)
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA__ADR                                                              (  0x000000ac )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000b0 : DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA (R)
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA__ADR                                                              (  0x000000b0 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ0_W7_TO_W4_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000b4 : DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA (R)
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA__ADR                                                              (  0x000000b4 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000b8 : DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA (R)
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA__ADR                                                              (  0x000000b8 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ1_W3_TO_W0_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000bc : DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA (R)
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA__ADR                                                              (  0x000000bc )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000c0 : DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA (R)
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA__ADR                                                              (  0x000000c0 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ1_W7_TO_W4_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000c4 : DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA (R)
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA__ADR                                                              (  0x000000c4 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000c8 : DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA (R)
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA__ADR                                                              (  0x000000c8 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ2_W3_TO_W0_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000cc : DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA (R)
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA__ADR                                                              (  0x000000cc )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000d0 : DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA (R)
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA__ADR                                                              (  0x000000d0 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ2_W7_TO_W4_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000d4 : DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA (R)
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA__ADR                                                              (  0x000000d4 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000d8 : DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA (R)
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA__ADR                                                              (  0x000000d8 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ3_W3_TO_W0_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000dc : DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA (R)
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA_DATA__MSK                                                         (  0xFFFFFFFF )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA__ADR                                                              (  0x000000dc )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA__WIDTH                                                            (  32 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_LO_STA__MSK                                                              (  0xFFFFFFFF )
+
+
+// Word Address 0x000000e0 : DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA (R)
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA_DATA__MSK                                                         (  0x000000FF )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA_DATA__SHFT                                                        (  0x00000000 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA__ADR                                                              (  0x000000e0 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA__WIDTH                                                            (   8 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA__POR                                                              (  0x00000000 )
+#define DDR_DFICH_DQ3_W7_TO_W4_MISR_HI_STA__MSK                                                              (  0x000000FF )
+
+
+// Word Address 0x000000e4 : DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA (R)
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA_DATA__MSK                                                          (  0xFFFFFFFF )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA__ADR                                                               (  0x000000e4 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA__WIDTH                                                             (  32 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_LO_STA__MSK                                                               (  0xFFFFFFFF )
+
+
+// Word Address 0x000000e8 : DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA (R)
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA_DATA__MSK                                                          (  0x000000FF )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA__ADR                                                               (  0x000000e8 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA__WIDTH                                                             (   8 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W1_TO_W0_MISR_HI_STA__MSK                                                               (  0x000000FF )
+
+
+// Word Address 0x000000ec : DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA (R)
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA_DATA__MSK                                                          (  0xFFFFFFFF )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA__ADR                                                               (  0x000000ec )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA__WIDTH                                                             (  32 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_LO_STA__MSK                                                               (  0xFFFFFFFF )
+
+
+// Word Address 0x000000f0 : DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA (R)
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA_DATA__MSK                                                          (  0x000000FF )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA__ADR                                                               (  0x000000f0 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA__WIDTH                                                             (   8 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W3_TO_W2_MISR_HI_STA__MSK                                                               (  0x000000FF )
+
+
+// Word Address 0x000000f4 : DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA (R)
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA_DATA__MSK                                                          (  0xFFFFFFFF )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA__ADR                                                               (  0x000000f4 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA__WIDTH                                                             (  32 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_LO_STA__MSK                                                               (  0xFFFFFFFF )
+
+
+// Word Address 0x000000f8 : DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA (R)
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA_DATA__MSK                                                          (  0x000000FF )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA__ADR                                                               (  0x000000f8 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA__WIDTH                                                             (   8 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W5_TO_W4_MISR_HI_STA__MSK                                                               (  0x000000FF )
+
+
+// Word Address 0x000000fc : DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA (R)
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA_DATA__MSK                                                          (  0xFFFFFFFF )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA__ADR                                                               (  0x000000fc )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA__WIDTH                                                             (  32 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_LO_STA__MSK                                                               (  0xFFFFFFFF )
+
+
+// Word Address 0x00000100 : DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA (R)
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA_DATA__MSK                                                          (  0x000000FF )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA_DATA__SHFT                                                         (  0x00000000 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA__ADR                                                               (  0x00000100 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA__WIDTH                                                             (   8 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA__POR                                                               (  0x00000000 )
+#define DDR_DFICH_CA_W7_TO_W6_MISR_HI_STA__MSK                                                               (  0x000000FF )
+
+
 #endif /* _DDR_DFICH_CSR_H_ */
