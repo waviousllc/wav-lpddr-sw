@@ -529,8 +529,8 @@ void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer);
  *
  * @return      void
  */
-void dfi_rx_packet_buffer_data_compare(dfi_rx_packet_buffer_t *buffer,
-                                       command_data_t *expected,
+void dfi_rx_packet_buffer_data_compare(const dfi_rx_packet_buffer_t *buffer,
+                                       const command_data_t *expected,
                                        wddr_dq_byte_t dq_byte,
                                        packet_data_mask_t data_mask,
                                        uint8_t num,
@@ -661,7 +661,7 @@ void fill_wrdata_en_packet(packet_item_t *packet,
 void fill_wrdata_packet(packet_item_t *packet,
                         packet_group_info_t *group_info,
                         chipselect_t cs,
-                        command_data_t *data,
+                        const command_data_t *data,
                         uint8_t cycles_per_packet,
                         uint16_t phase_length);
 

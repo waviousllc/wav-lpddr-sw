@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <dfi/device.h>
-#include <dfi/driver.h>
-#include <dfi/buffer_device.h>
 #include <kernel/irq.h>
 #include <kernel/io.h>
 #include <wddr/memory_map.h>
@@ -25,9 +23,12 @@ void dfi_init(dfi_dev_t *dfi, uint32_t base)
 {
     uint32_t mask;
 
-    dfi->base = base;
-    dfi_set_msr_reg_if(dfi, WDDR_MSR_0);
-    dfi_buffer_init(&dfi->dfi_buffer, base);
+    // Setup register space
+    dfi->dfi_reg = (dfi_reg_t *)(base + WDDR_MEMORY_MAP_DFI);
+    dfi->dfich_reg = (dfich_reg_t *)(base + WDDR_MEMORY_MAP_DFI_CH0);
+
+    // Turn on hold feature of IG FIFO
+    dfi_fifo_set_wdata_hold_reg_if(dfi->dfich_reg, true);
 
     // Request IRQs
     request_irq(MCU_FAST_IRQ_PHYMSTR_ACK, handle_dfi_phymstr_ack_irq, NULL);
@@ -49,39 +50,39 @@ void dfi_init(dfi_dev_t *dfi, uint32_t base)
 
 void dfi_phymstr_req(dfi_dev_t *dfi, dfi_phymstr_req_t *req)
 {
-    dfi_phymstr_req_assert_reg_if(req);
+    dfi_phymstr_req_assert_reg_if(dfi->dfi_reg, req);
 }
 
 void dfi_phymstr_exit(dfi_dev_t *dfi)
 {
-    dfi_phymstr_req_deassert_reg_if();
+    dfi_phymstr_req_deassert_reg_if(dfi->dfi_reg);
 }
 
 void dfi_ctrlupd_deassert_ack(dfi_dev_t *dfi)
 {
-    dfi_ctrlupd_deassert_ack_reg_if();
+    dfi_ctrlupd_deassert_ack_reg_if(dfi->dfi_reg);
 }
 
 void dfi_ctrlupd_enable(dfi_dev_t *dfi)
 {
-    dfi_ctrlupd_ack_override_reg_if(false, 0);
+    dfi_ctrlupd_ack_override_reg_if(dfi->dfi_reg, false, 0);
     enable_irq(MCU_FAST_IRQ_CTRLUPD_REQ);
 }
 
 void dfi_ctrlupd_disable(dfi_dev_t *dfi)
 {
-    dfi_ctrlupd_ack_override_reg_if(true, 0);
+    dfi_ctrlupd_ack_override_reg_if(dfi->dfi_reg, true, 0);
     disable_irq(MCU_FAST_IRQ_CTRLUPD_REQ);
 }
 
 void dfi_phyupd_req(dfi_dev_t *dfi, dfi_phyupd_type_t type)
 {
-    dfi_phyupd_req_assert_reg_if(type);
+    dfi_phyupd_req_assert_reg_if(dfi->dfi_reg, type);
 }
 
 void dfi_phyupd_exit(dfi_dev_t *dfi)
 {
-    dfi_phyupd_req_deassert_reg_if();
+    dfi_phyupd_req_deassert_reg_if(dfi->dfi_reg);
 }
 
 static void handle_dfi_phymstr_ack_irq(__UNUSED__ int irq_num, __UNUSED__ void *args)

@@ -37,5 +37,4 @@ target_include_directories(
 target_link_libraries(
     ${LIB_NAME}
     wddr
-    clk_driver
 )
