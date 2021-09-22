@@ -10,23 +10,11 @@
 #include <wddr/device.h>
 
 /**
- * @brief   Wavious DDR (WDDR) Initilization Register Interface
- *
- * @details Initailizes WDDR Device at driver level.
- *
- * @param[in]   wddr    pointer to WDDR device.
- * @param[in]   base    base address of the WDDR device.
- *
- * @return      void
- */
-void wddr_init_reg_if(wddr_dev_t *wddr, uint32_t base);
-
-/**
  * @brief   Wavious DDR (WDDR) Clear FIFO Register Interface
  *
  * @details Clears FIFOs in all channels.
  *
- * @param[in]   wddr    pointer to WDDR device.
+ * @param[in]   wddr        pointer to WDDR device.
  * @param[in]   channel     channel to set.
  *
  * @return      void
@@ -47,7 +35,9 @@ void wddr_clear_fifo_reg_if(wddr_dev_t *wddr, wddr_channel_t channel);
  *
  * @return      void
  */
-void wddr_set_dram_resetn_pin_reg_if(wddr_dev_t *wddr, bool override, bool high);
+void wddr_set_dram_resetn_pin_reg_if(wddr_dev_t *wddr,
+                                     bool override,
+                                     bool high);
 
 /**
  * @brief   Wavious DDR (WDDR) Set Chip Select Register Interface
@@ -78,18 +68,9 @@ void wddr_set_chip_select_reg_if(wddr_dev_t *wddr,
  *
  * @return      void
  */
-void wddr_read_bscan_result_reg_if(wddr_dev_t *wddr, wddr_dq_byte_t dq_byte, wddr_channel_t channel, uint8_t *result);
+void wddr_read_bscan_result_reg_if(wddr_dev_t *wddr,
+                                   wddr_dq_byte_t dq_byte,
+                                   wddr_channel_t channel,
+                                   uint8_t *result);
 
-/**
- * @brief   Wavious DDR (WDDR) Read Data Out Enable Override Register Interface
- *
- * @details Sets the read data out enable override for the DFI interface.
- *
- * @param[in]   wddr        pointer to WDDR device.
- * @param[in]   ovr_sel     flag to indicate if SW should override rdout.
- * @param[in]   ovr         flag to indicate if override output is HIGH.
- *
- * @return      void
- */
-void wddr_set_rdout_en_ovr_reg_if(wddr_dev_t *wddr, bool ovr_sel, bool ovr);
 #endif /* _WDDR_DRIVER_H_ */

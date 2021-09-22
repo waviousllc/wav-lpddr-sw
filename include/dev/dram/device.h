@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 #include <dram/table.h>
-#include <dfi/buffer_device.h>
+#include <dfi/buffer.h>
 
 /**
  * @brief   DRAM Device Structure
@@ -20,13 +20,11 @@
  *          this device is only used during DRAM training.
  *
  * mr13     Stores current value of MR13 in DRAM.
- * cal      Pointer to current DRAM freq cal structure.
  * cfg      Pointer to current DRAM freq cfg structure.
  */
 typedef struct dram_dev_t
 {
     uint8_t         mr13;
-    dram_freq_cal_t *cal;
     dram_freq_cfg_t *cfg;
 } dram_dev_t;
 
@@ -37,13 +35,11 @@ typedef struct dram_dev_t
  *
  * @param[in]   dram        pointer to DRAM device.
  * @param[in]   dram_cfg    pointer to DRAM Frequency Configuration data.
- * @param[in]   dram_cal    pointer to DRAM Frequency Calibration data.
  *
  * @return      void
  */
 void dram_init(dram_dev_t *dram,
-               dram_freq_cfg_t *dram_cfg,
-               dram_freq_cal_t *dram_cal);
+               dram_freq_cfg_t *dram_cfg);
 
 /**
  * @brief   DRAM Frequency Set
@@ -52,37 +48,35 @@ void dram_init(dram_dev_t *dram,
  *
  * @param[in]   dram        pointer to DRAM device.
  * @param[in]   dram_cfg    pointer to DRAM Frequency Configuration data.
- * @param[in]   dram_cal    pointer to DRAM Frequency Calibration data.
  *
  * @return      void
  */
 void dram_frequency_set(dram_dev_t *dram,
-                        dram_freq_cfg_t *dram_cfg,
-                        dram_freq_cal_t *dram_cal);
+                        dram_freq_cfg_t *dram_cfg);
 
 /**
  * @brief   DRAM Power Down
  *
  * @details Performs a Power Down sequence for DRAM using DFI Buffer.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
-void dram_power_down(dram_dev_t *dram, dfi_buffer_dev_t *dfi_buffer);
+void dram_power_down(dram_dev_t *dram, dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Idle
  *
  * @details Puts DRAM into IDLE state using DFI Buffer.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
-void dram_idle(dram_dev_t *dram, dfi_buffer_dev_t *dfi_buffer);
+void dram_idle(dram_dev_t *dram, dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Frequency Innitialization
@@ -91,17 +85,15 @@ void dram_idle(dram_dev_t *dram, dfi_buffer_dev_t *dfi_buffer);
  *          Register values.
  *
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   dram_cfg        pointer to DRAM Frequency Configuration data.
- * @param[in]   dram_cal        pointer to DRAM Frequency Calibration data.
+ * @param[in]   dram        pointer to DRAM device.
+ * @param[in]   dfi         pointer to DFI device.
+ * @param[in]   dram_cfg    pointer to DRAM Frequency Configuration data.
  *
  * @return      void
  */
 void dram_frequency_init(dram_dev_t *dram,
-                         dfi_buffer_dev_t *dfi_buffer,
-                         dram_freq_cfg_t *dram_cfg,
-                         dram_freq_cal_t *dram_cal);
+                         dfi_dev_t *dfi,
+                         dram_freq_cfg_t *dram_cfg);
 
 /**
  * @brief   DRAM Command Bus Training (CBT) Enter
@@ -111,13 +103,13 @@ void dram_frequency_init(dram_dev_t *dram,
  * @note    cfg parameter must be initialized for current frequency prior to
  *          calling this function.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_cbt_enter(dram_dev_t *dram,
-                    dfi_buffer_dev_t *dfi_buffer);
+                    dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Command Bus Training (CBT) Exit
@@ -127,27 +119,27 @@ void dram_cbt_enter(dram_dev_t *dram,
  * @note    cfg parameter must be initialized for current frequency prior to
  *          calling this function.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_cbt_exit(dram_dev_t *dram,
-                   dfi_buffer_dev_t *dfi_buffer);
+                   dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM FSP WR Set
  *
  * @details Sets desired FSP-WR value in DRAM.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   fsp             desired FSP to set WR to.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[in]   fsp     desired FSP to set WR to.
  *
  * @return      void
  */
 void dram_set_fsp_wr(dram_dev_t *dram,
-                     dfi_buffer_dev_t *dfi_buffer,
+                     dfi_dev_t *dfi,
                      uint8_t fsp);
 
 /**
@@ -157,14 +149,14 @@ void dram_set_fsp_wr(dram_dev_t *dram,
  *
  * @note    This will also set FSP-WR to same FSP as FSP-OP.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   fsp             desired FSP to set OP to.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[in]   fsp     desired FSP to set WR to
  *
  * @return      void
  */
 void dram_set_fsp_op(dram_dev_t *dram,
-                     dfi_buffer_dev_t *dfi_buffer,
+                     dfi_dev_t *dfi,
                      uint8_t fsp);
 
 /**
@@ -173,13 +165,13 @@ void dram_set_fsp_op(dram_dev_t *dram,
  * @details Sets desired DQ VREF value in DRAM.
  *
  * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dfi             pointer to DFI device.
  * @param[in]   vref_setting    desired DQ VREF value to set.
  *
  * @return      void
  */
 void dram_set_dq_vref(dram_dev_t *dram,
-                      dfi_buffer_dev_t *dfi_buffer,
+                      dfi_dev_t *dfi,
                       uint8_t vref_setting);
 
 /**
@@ -188,13 +180,13 @@ void dram_set_dq_vref(dram_dev_t *dram,
  * @details Enables Write Level Training in DRAM using DFI Buffer.
  *
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_wrlvl_enable(dram_dev_t *dram,
-                       dfi_buffer_dev_t *dfi_buffer);
+                       dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Write Level Training Disable
@@ -202,13 +194,13 @@ void dram_wrlvl_enable(dram_dev_t *dram,
  * @details Disables Write Level Training in DRAM using DFI Buffer.
  *
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_wrlvl_disable(dram_dev_t *dram,
-                        dfi_buffer_dev_t *dfi_buffer);
+                        dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Vref Current Generator(VRCG) Enable
@@ -216,13 +208,13 @@ void dram_wrlvl_disable(dram_dev_t *dram,
  * @details Enables VRCG in DRAM using DFI Buffer.
  *
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_vrcg_enable(dram_dev_t *dram,
-                      dfi_buffer_dev_t *dfi_buffer);
+                      dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Vref Current Generator(VRCG) Disable
@@ -230,27 +222,27 @@ void dram_vrcg_enable(dram_dev_t *dram,
  * @details Disables VRCG in DRAM using DFI Buffer.
  *
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
  *
  * @return      void
  */
 void dram_vrcg_disable(dram_dev_t *dram,
-                       dfi_buffer_dev_t *dfi_buffer);
+                       dfi_dev_t *dfi);
 
 /**
  * @brief   DRAM Write Mode Register 13
  *
  * @details Sets the value of Mode Register 13 in DRAM using DFI Buffer.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   mr13            the value of MR13 to set.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[in]   mr13    the value of MR13 to set.
  *
  * @return      void
  */
 void dram_write_mode_register_13(dram_dev_t *dram,
-                                 dfi_buffer_dev_t *dfi_buffer,
+                                 dfi_dev_t *dfi,
                                  uint8_t mr13);
 
 /**
@@ -258,14 +250,14 @@ void dram_write_mode_register_13(dram_dev_t *dram,
  *
  * @details Sets the value of Mode Register 14 in DRAM using DFI Buffer.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   mr14            the value of MR13 to set.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[in]   mr14    the value of MR13 to set.
  *
  * @return      void
  */
 void dram_write_mode_register_14(dram_dev_t *dram,
-                                 dfi_buffer_dev_t *dfi_buffer,
+                                 dfi_dev_t *dfi,
                                  uint8_t mr14);
 
 /**
@@ -273,14 +265,14 @@ void dram_write_mode_register_14(dram_dev_t *dram,
  *
  * @details Sets the value of Mode Register 2 in DRAM using DFI Buffer.
  *
- * @param[in]   dram            pointer to DRAM device.
- * @param[in]   dfi_buffer      pointer to DFI Buffer device.
- * @param[in]   mr13            the value of MR2 to set.
+ * @param[in]   dram    pointer to DRAM device.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[in]   mr2     the value of MR2 to set.
  *
  * @return      void
  */
 void dram_write_mode_register_2(dram_dev_t *dram,
-                                dfi_buffer_dev_t *dfi_buffer,
+                                dfi_dev_t *dfi,
                                 uint8_t mr2);
 
 /**
@@ -469,13 +461,11 @@ wddr_return_t dram_prepare_wrlvl_sequence(dram_dev_t *dram,
  * @param[in]   dram        pointer to DRAM device.
  * @param[in]   buffer      pointer to packet buffer to save packet to.
  * @param[in]   dram_cfg    pointer to DRAM Frequency Configuration data.
- * @param[in]   dram_cal    pointer to DRAM Frequency Calibration data.
  *
  * @return      void.
  */
 void dram_prepare_mrw_update(dram_dev_t *dram,
                              dfi_tx_packet_buffer_t *packet_buffer,
-                             dram_freq_cfg_t *dram_cfg,
-                             dram_freq_cal_t *dram_cal);
+                             dram_freq_cfg_t *dram_cfg);
 
 #endif /* _DRAM_DEV_H_ */

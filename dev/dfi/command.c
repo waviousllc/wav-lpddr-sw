@@ -205,11 +205,11 @@ void create_cbt_command(command_t *command,
     command->command_type = COMMAND_TYPE_CBT;
     create_cbt_write_frame(command->address, cs, ca_val);
 
-    command->data = data;
     for (uint8_t nn = 0; nn < MAX_DATA_SIZE; nn++)
     {
-        command->data->dq[0][nn] = vref_ca;
+        data->dq[0][nn] = vref_ca;
     }
+    command->data = data;
 }
 
 void create_wrfifo_command(command_t *command,

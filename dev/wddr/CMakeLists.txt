@@ -1,23 +1,22 @@
-set(LIB_NAME wddr)
-set(
-    SRC
-    ${CMAKE_CURRENT_LIST_DIR}/device.c
+FILE(
+    GLOB_RECURSE
+    WDDR_DEV_SOURCES
+    ${WAV_WDDR_TOP_LEVEL}/dev/*/*.c
 )
 
 set(
     INCLUDE
     ${WAV_WDDR_TOP_LEVEL}/include/dev/
-    ${WAV_WDDR_TOP_LEVEL}/include/fsm/
 )
 
 add_library(
-    ${LIB_NAME}
+    wddr
     STATIC
-    ${SRC}
+    ${WDDR_DEV_SOURCES}
 )
 
 target_include_directories(
-    ${LIB_NAME}
+    wddr
     PUBLIC
     ${INCLUDE}
 )
@@ -28,12 +27,7 @@ add_library(
 )
 
 target_link_libraries(
-    ${LIB_NAME}
+    wddr
     wddr_driver
-    path
-    dfi
-    pll
-    dram
     wddr_ext
-    fsw
 )
