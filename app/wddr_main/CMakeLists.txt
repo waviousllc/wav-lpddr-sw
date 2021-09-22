@@ -42,7 +42,6 @@ target_compile_definitions(
 target_link_libraries(
     ${PROJECT_NAME}
     phy_firmware
-    messenger
 )
 
 target_link_options(

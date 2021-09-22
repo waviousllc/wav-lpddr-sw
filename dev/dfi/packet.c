@@ -20,14 +20,14 @@ static uint32_t determine_group_mask(packet_group_info_t *group_info,
                                      uint8_t phases_per_cycle_shft);
 
 /** @brief  Internal Function for extracting data from a packet and storing in a data buffer */
-static void extract_packet_data(dfi_rx_packet_desc_t *packet,
+static void extract_packet_data(const dfi_rx_packet_desc_t *packet,
                                 uint8_t data_packet[PACKET_MAX_NUM_PHASES],
                                 wddr_dq_byte_t dq_byte,
                                 uint8_t phases);
 
 /** @brief  Internal Function to compare received data versus expected data */
-static bool compare_received_data(uint8_t received[PACKET_MAX_NUM_PHASES],
-                                  uint8_t *expected,
+static bool compare_received_data(const uint8_t received[PACKET_MAX_NUM_PHASES],
+                                  const uint8_t *expected,
                                   uint8_t phases,
                                   packet_data_mask_t data_mask);
 
@@ -64,7 +64,7 @@ void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
 }
 
 packet_item_t * create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                        uint16_t time_offset)
+                                          uint16_t time_offset)
 {
     packet_item_t *packet;
     create_packet(buffer, &packet);
@@ -216,7 +216,7 @@ void fill_wrdata_en_packet(packet_item_t *packet,
 void fill_wrdata_packet(packet_item_t *packet,
                         packet_group_info_t *group_info,
                         chipselect_t cs,
-                        command_data_t *data,
+                        const command_data_t *data,
                         uint8_t cycles_per_packet,
                         uint16_t phase_length)
 {
@@ -324,15 +324,15 @@ void fill_rddata_packet(packet_item_t *packet,
 #endif
 }
 
-void dfi_rx_packet_buffer_data_compare(dfi_rx_packet_buffer_t *buffer,
-                                       command_data_t *expected,
+void dfi_rx_packet_buffer_data_compare(const dfi_rx_packet_buffer_t *buffer,
+                                       const command_data_t *expected,
                                        wddr_dq_byte_t dq_byte,
                                        packet_data_mask_t data_mask,
                                        uint8_t num,
                                        uint8_t phases,
                                        uint8_t *is_same)
 {
-    dfi_rx_packet_desc_t *packet;
+    const dfi_rx_packet_desc_t *packet;
     bool same = false;
     uint8_t data_packet[PACKET_MAX_NUM_PHASES];
 
@@ -380,7 +380,7 @@ static void create_packet(dfi_tx_packet_buffer_t *buffer, packet_item_t **packet
 }
 
 // TODO: Need to support 8 phases
-static void extract_packet_data(dfi_rx_packet_desc_t *packet,
+static void extract_packet_data(const dfi_rx_packet_desc_t *packet,
                                 uint8_t data_packet[PACKET_MAX_NUM_PHASES],
                                 wddr_dq_byte_t dq_byte,
                                 uint8_t phases)
@@ -395,8 +395,8 @@ static void extract_packet_data(dfi_rx_packet_desc_t *packet,
     }
 }
 
-static bool compare_received_data(uint8_t received[PACKET_MAX_NUM_PHASES],
-                                  uint8_t *expected,
+static bool compare_received_data(const uint8_t received[PACKET_MAX_NUM_PHASES],
+                                  const uint8_t *expected,
                                   uint8_t phases,
                                   packet_data_mask_t data_mask)
 {
@@ -416,9 +416,9 @@ static bool compare_received_data(uint8_t received[PACKET_MAX_NUM_PHASES],
 }
 
 void create_packet_group_info(packet_group_info_t *group_info,
-                                     wddr_freq_ratio_t ratio,
-                                     uint16_t dram_clk_cycles,
-                                     uint16_t phase_length)
+                              wddr_freq_ratio_t ratio,
+                              uint16_t dram_clk_cycles,
+                              uint16_t phase_length)
 {
     group_info->dfi_ts_start = dram_clk_cycles >> ratio;
     group_info->cycle_offset = dram_clk_cycles & ((1 << ratio) - 1);
