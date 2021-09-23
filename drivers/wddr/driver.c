@@ -92,6 +92,14 @@ void wddr_read_bscan_result_reg_if(wddr_dev_t *wddr, wddr_dq_byte_t dq_byte, wdd
                        DDR_DQ_DQ_RX_BSCAN_STA__ADR);
 }
 
+void wddr_set_rdout_en_ovr_reg_if(wddr_dev_t *wddr, bool ovr_sel, bool ovr)
+{
+    uint32_t reg_val = reg_read(wddr->base + WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_RDOUT_EN_OVR_SEL, ovr_sel);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_RDOUT_EN_OVR, ovr);
+    reg_write(wddr->base + WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+}
+
 static void wddr_set_channel_top_cfg_reg_if(wddr_dev_t *wddr,
                                             wddr_channel_t channel,
                                             uint32_t ca_reg_val,
