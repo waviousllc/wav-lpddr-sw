@@ -152,7 +152,7 @@ void dram_cbt_exit(dram_dev_t *dram,
     dfi_tx_packet_buffer_init(&packet_buffer);
     create_ck_packet_sequence(&packet_buffer, 15);
     create_cke_packet_sequence(&packet_buffer, 1);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
+    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, dram->cfg->t_vref_ca_long);
     create_cke_packet_sequence(&packet_buffer, 1);
     dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
