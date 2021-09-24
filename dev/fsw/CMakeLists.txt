@@ -7,6 +7,7 @@ set(
 set(
     INCLUDE
     ${WAV_WDDR_TOP_LEVEL}/include/dev/
+    ${WAV_WDDR_TOP_LEVEL}/include
 )
 
 add_library(
@@ -24,4 +25,5 @@ target_include_directories(
 target_link_libraries(
     ${LIB_NAME}
     fsw_driver
+    dfi_driver
 )
