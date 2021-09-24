@@ -5,11 +5,8 @@
  */
 #include <compiler.h>
 #include <fsw/device.h>
-#include <fsw/driver.h>
-#include <dfi/driver.h>
 #include <kernel/irq.h>
 #include <kernel/io.h>
-#include <pll/device.h>
 #include <wddr/irq_map.h>
 #include <wddr/memory_map.h>
 #include <firmware/phy_task.h>
@@ -20,10 +17,11 @@ static void handle_init_start_irq(int irq_num, void *args);
 /** @brief  IRQ Handler for INIT_COMPLETE IRQ */
 static void handle_init_complete_irq(int irq_num, void *args);
 
-void fsw_init(fsw_dev_t *dev)
+void fsw_init(fsw_dev_t *dev, uint32_t base)
 {
     uint32_t mask;
 
+    dev->fsw_reg = (fsw_reg_t *)(base + WDDR_MEMORY_MAP_FSW);
     dev->mode = FSW_MODE_SW;
 
     // Mask interrupts
@@ -41,32 +39,32 @@ void fsw_init(fsw_dev_t *dev)
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_STICKY_CFG__ADR, mask);
 }
 
-void fsw_switch_to_dfi_mode(fsw_dev_t *dev)
+void fsw_switch_to_dfi_mode(fsw_dev_t *fsw_dev, dfi_dev_t *dfi_dev)
 {
     uint32_t init_start, reg_val;
 
-    if (dev->mode == FSW_MODE_DFI)
+    if (fsw_dev->mode == FSW_MODE_DFI)
     {
         return;
     }
 
     // Set override values to MSR0 and VCO1
-    fsw_ctrl_set_msr_vco_ovr_val_reg_if(WDDR_MSR_0, VCO_INDEX_PHY_1);
+    fsw_ctrl_set_msr_vco_ovr_val_reg_if(fsw_dev->fsw_reg, WDDR_MSR_0, VCO_INDEX_PHY_1);
 
     // Disable overrides to allow hardware to switch MSR and VCO.
-    fsw_ctrl_set_msr_vco_ovr_reg_if(false);
+    fsw_ctrl_set_msr_vco_ovr_reg_if(fsw_dev->fsw_reg, false);
 
     // Release init_complete override indicating dfi interface is ready.
-    dfi_set_init_complete_ovr_reg_if(false, 0x0);
+    dfi_set_init_complete_ovr_reg_if(dfi_dev->dfi_reg, false, 0x0);
 
     // init_start must be low before proceeding, wait for this to happen.
     do
     {
-        init_start = dfi_get_init_start_status_reg_if();
+        init_start = dfi_get_init_start_status_reg_if(dfi_dev->dfi_reg);
     } while (init_start != 0x0);
 
     // Release init_start override (shouldn't be set)
-    dfi_set_init_start_ovr_reg_if(false, 0x0);
+    dfi_set_init_start_ovr_reg_if(dfi_dev->dfi_reg, false, 0x0);
 
     // Disable interrupts
     disable_irq(MCU_FAST_IRQ_INIT_START);
@@ -82,12 +80,12 @@ void fsw_switch_to_dfi_mode(fsw_dev_t *dev)
               FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_START) | FAST_IRQ_STICKY_MASK(DDR_IRQ_INIT_COMPLETE));
     reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_IRQ_FAST_CLR_CFG__ADR, 0x0);
 
-    dev->mode = FSW_MODE_DFI;
+    fsw_dev->mode = FSW_MODE_DFI;
 }
 
-wddr_msr_t fsw_get_current_msr(__UNUSED__ fsw_dev_t *dev)
+wddr_msr_t fsw_get_current_msr(fsw_dev_t *dev)
 {
-    return fsw_ctrl_get_current_msr_reg_if();
+    return fsw_ctrl_get_current_msr_reg_if(dev->fsw_reg);
 }
 
 wddr_msr_t fsw_get_next_msr(fsw_dev_t *dev)

@@ -7,6 +7,8 @@
 #define _FSW_DEV_H_
 
 #include <wddr/phy_defs.h>
+#include <fsw/driver.h>
+#include <dfi/device.h>
 
 /**
  * @brief   Frequency Switch Modes
@@ -23,12 +25,14 @@ typedef enum fsw_mode
 /**
  * @brief   Frequency Switch Device Structure
  *
+ * fsw_reg  Poniter to Frequency Switch register space.
  * mode     The current Frequency Switch mode of the FSW device. After boot,
  *          mode is always FSW_MODE_DFI and all switches have to be initaited
  *          via the DFI interface.
  */
 typedef struct fsw_device
 {
+    fsw_reg_t  *fsw_reg;
     fsw_mode_t mode;
 } fsw_dev_t;
 
@@ -38,10 +42,11 @@ typedef struct fsw_device
  * @details Initializes the Frequency Switch Device.
  *
  * @param[in]   dev     pointer to Frequency Switch device to init.
+ * @param[in]   base    base address of fsw register space.
  *
  * @return  void.
  */
-void fsw_init(fsw_dev_t *dev);
+void fsw_init(fsw_dev_t *dev, uint32_t base);
 
 /**
  * @brief   Frequency Switch Switch To DFI Mode.
@@ -50,11 +55,12 @@ void fsw_init(fsw_dev_t *dev);
  *          frequency switches are initiated via the DFI interface (INIT_START).
  *          Should be called after PHY boots.
  *
- * @param[in]   dev     pointer to Frequency Switch device to init.
+ * @param[in]   fsw_dev     pointer to Frequency Switch device.
+ * @param[in]   dfi_dev     pointer to DFI device.
  *
  * @return  void.
  */
-void fsw_switch_to_dfi_mode(fsw_dev_t *dev);
+void fsw_switch_to_dfi_mode(fsw_dev_t *fsw_dev, dfi_dev_t *dfi_dev);
 
 /**
  * @brief   Frequency Switch Get Current Mode Switch Register (MSR)
