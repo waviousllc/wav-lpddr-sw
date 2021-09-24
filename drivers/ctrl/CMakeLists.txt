@@ -1,13 +1,14 @@
-set(DRIVER clk_driver)
+set(DRIVER ctrl_driver)
 
 set(
     SRC
-    ${CMAKE_CURRENT_LIST_DIR}/driver.c
+    ${CMAKE_CURRENT_LIST_DIR}/ctrl_clk.c
 )
 
 set(
     INCLUDE_DIRECTORY
     ${WAV_WDDR_TOP_LEVEL}/include/drivers
+    ${WAV_WDDR_TOP_LEVEL}/include/table
     ${WAV_WDDR_TOP_LEVEL}/include/dev
     ${WAV_WDDR_TOP_LEVEL}/include
 )
