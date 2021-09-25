@@ -1,5 +1,1 @@
-add_subdirectory(dfi)
-add_subdirectory(fsw)
-add_subdirectory(pll)
-add_subdirectory(vco)
 add_subdirectory(wddr)
