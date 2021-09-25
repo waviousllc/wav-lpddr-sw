@@ -1,3 +1,6 @@
+set(TARGET_COMMON_DIR ${WAV_WDDR_TOP_LEVEL}/target/wddr)
+set(TARGET_COMMON_SRC ${TARGET_COMMON_DIR}/src)
+
 ################################################################################
 ##                        WDDR Interface Library
 ##
@@ -13,8 +16,10 @@ add_library(
 target_include_directories(
     wddr_intf
     INTERFACE
-    ${WAV_WDDR_TOP_LEVEL}/include/dev
-    ${WAV_WDDR_TOP_LEVEL}/include/drivers
+    ${TARGET_COMMON_DIR}/include/dev
+    ${CMAKE_CURRENT_LIST_DIR}/include/dev
+    ${CMAKE_CURRENT_LIST_DIR}/include/drivers
+    ${CMAKE_CURRENT_LIST_DIR}/include/config
 )
 
 target_link_libraries(
@@ -34,28 +39,23 @@ target_link_libraries(
 FILE(
     GLOB_RECURSE
     WDDR_DRIVER_SOURCES
-    ${WAV_WDDR_TOP_LEVEL}/drivers/*/*.c
+    ${TARGET_COMMON_SRC}/drivers/*/*.c
 )
 
 FILE(
     GLOB_RECURSE
     WDDR_DEV_SOURCES
-    ${WAV_WDDR_TOP_LEVEL}/dev/*/*.c
-)
-
-# Exclude WDDR Device (this is built later)
-list(
-    REMOVE_ITEM
-    WDDR_DEV_SOURCES
-    ${WAV_WDDR_TOP_LEVEL}/dev/wddr/device.c
+    ${TARGET_COMMON_SRC}/dev/*/*.c
 )
 
 set(
     WDDR_DRIVER_INCLUDES
-    ${WAV_WDDR_TOP_LEVEL}/include/drivers
-    ${WAV_WDDR_TOP_LEVEL}/include/dev
-    ${WAV_WDDR_TOP_LEVEL}/include/table
     ${WAV_WDDR_TOP_LEVEL}/include
+    ${TARGET_COMMON_DIR}/include/drivers
+    ${TARGET_COMMON_DIR}/include/dev
+    ${TARGET_COMMON_DIR}/include/table
+    ${CMAKE_CURRENT_LIST_DIR}/include/private
+    ${CMAKE_CURRENT_LIST_DIR}/include/table
 )
 
 add_library(
@@ -116,7 +116,7 @@ target_link_libraries(
 add_library(
     wddr_impl
     STATIC
-    ${WAV_WDDR_TOP_LEVEL}/dev/wddr/device.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/impl.c
 )
 
 target_compile_options(
@@ -128,7 +128,6 @@ target_compile_options(
 target_link_libraries(
     wddr_impl
     PRIVATE
-    wddr_intf
     wddr_dev
 )
 
