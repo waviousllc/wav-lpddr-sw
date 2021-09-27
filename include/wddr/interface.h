@@ -432,6 +432,7 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets);
  *
  * @param[in]   wddr            WDDR device handle.
  * @param[in]   data            data that is expected to be received.
+ * @param[in]   sig             data signature that is expected to be received.
  * @param[in]   bl              Burst length of data expected to recieve.
  * @param[in]   dq_byte_mask    mask to indicate which DQ bytes to validate.
  *
@@ -441,6 +442,7 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets);
  */
 bool wddr_validate_recv_data(wddr_handle_t wddr,
                              const command_data_t *data,
+                             const command_data_sig_t *sig,
                              burst_length_t bl,
                              uint8_t dq_byte_mask);
 

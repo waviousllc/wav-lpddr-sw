@@ -14,6 +14,8 @@
 // Can send at most 32 bytes worth of data in single DFI transaction
 #define MAX_DATA_SIZE       (32U)
 #define MAX_COMMAND_FRAMES  (4)
+#define SIG_WORDS           (2)     // Number of words in signature
+
 /**
  * @brief   Command Frame
  *
@@ -97,6 +99,26 @@ typedef struct command_data_t
     uint8_t dq[WDDR_PHY_DQ_BYTE_NUM][MAX_DATA_SIZE];
     uint8_t dm[WDDR_PHY_DQ_BYTE_NUM][MAX_DATA_SIZE];
 } command_data_t;
+
+/**
+ * @brief   Command Data Signature Structure
+ *
+ * @details Holds the signature that represents the command data. Signature is
+ *          a function of the ratio, so the structure contains the signature for
+ *          all ratios. The correct signature is selected based on the current
+ *          ratio.
+ *
+ * @note    Each DQ has multiple signatures, but not needed since not using
+ *          ratio higher than 2. However, this will need to be revisited once
+ *          ratio 4 or higher is used.
+ *
+ * signature    Lower and upper words of signature for each ratio and each
+ *              DQ byte.
+ */
+typedef struct command_data_signature
+{
+    uint32_t signature[WDDR_PHY_NUM_FREQ_RATIO][WDDR_PHY_DQ_BYTE_NUM][SIG_WORDS];
+} command_data_sig_t;
 
 /**
  * @brief   Commmand Structure

@@ -530,6 +530,7 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
 __attribute__(( weak ))
 bool wddr_validate_recv_data(wddr_handle_t wddr,
                              const command_data_t *data,
+                             __UNUSED__ const command_data_sig_t *sig,
                              burst_length_t bl,
                              uint8_t dq_byte_mask)
 {
