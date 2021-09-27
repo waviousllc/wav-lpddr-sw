@@ -11,6 +11,7 @@
 #include "dfi_intf.h"
 #include "dfi_ret.h"
 #include "dfi_top.h"
+#include <dfi/dfi_ext.h>
 #include <wddr/memory_map.h>
 
 #endif /* _DFI_DRIVER_H_ */

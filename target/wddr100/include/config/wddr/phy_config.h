@@ -20,5 +20,6 @@
 #define WDDR_PHY_DQ_BYTE_NUM                (WDDR_DQ_BYTE_TOTAL)
 #define WDDR_PHY_CHANNEL_NUM                (WDDR_CHANNEL_TOTAL)
 #define WDDR_PHY_MAX_FREQ_RATIO             (WDDR_PHY_FREQ_RATIO_1TO2)
+#define WDDR_PHY_NUM_FREQ_RATIO             (WDDR_PHY_MAX_FREQ_RATIO + 1)
 
 #endif /* _WDDR_PHY_CONFIG_H_ */
