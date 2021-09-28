@@ -7,30 +7,16 @@
 #define _WDDR_DEV_H_
 
 #include <error.h>
+#include <channel/device.h>
+#include <cmn/device.h>
+#include <ctrl/device.h>
 #include <dfi/device.h>
 #include <dram/device.h>
 #include <fsw/device.h>
-#include <path/ca.h>
-#include <path/common.h>
-#include <path/dq.h>
 #include <pll/device.h>
 #include <wddr/phy_config.h>
 #include <wddr/table.h>
 #include "boot_options.h"
-
-/**
- * @brief   Channel Structure
- *
- * @details Channel structure that aggegrates DQ and CA paths.
- *
- * dq    DQ Bytes
- * ca    CA Bytes
- */
-typedef struct channel_t
-{
-    dq_path_t      dq[WDDR_PHY_DQ_BYTE_NUM];
-    ca_path_t      ca;
-} channel_t;
 
 /**
  * @brief   WDDR Structure
@@ -38,11 +24,10 @@ typedef struct channel_t
  * @details WDDR structure that aggegrates all devices of
  *          the WDDR device.
  *
- * base         base address of WDDR (top-level).
- * xHandle      private reference to task block by prep / switch request.
- * endpoint     Notification endpoint.
- * channel      all channels.
- * cmn          all devices in common path.
+ * is_booted    flag to indicate that WDDR has been booted.
+ * channel      channel register space.
+ * cmn          common register space.
+ * ctrl         ctrl register space.
  * dfi          DFI device.
  * dram         DRAM device.
  * fsw          Frequency Switch device.
@@ -52,10 +37,10 @@ typedef struct channel_t
  */
 typedef struct wddr_dev_t
 {
-    uint32_t        base;
     bool            is_booted;
-    channel_t       channel[WDDR_PHY_CHANNEL_NUM];
-    common_path_t   cmn;
+    channel_dev_t   channel[WDDR_PHY_CHANNEL_NUM];
+    cmn_dev_t       cmn;
+    ctrl_dev_t      ctrl;
     dfi_dev_t       dfi;
     dram_dev_t      dram;
     pll_dev_t       pll;
