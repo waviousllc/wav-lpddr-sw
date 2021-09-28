@@ -11,7 +11,7 @@
 *******************************************************************************/
 void dq_dq_rx_gb_set_mode_reg_if(dq_reg_t *dq_reg,
                                  wddr_msr_t msr,
-                                 rx_gb_cfg_t *cfg)
+                                 const rx_gb_cfg_t *cfg)
 {
     uint32_t reg_val = dq_reg->DDR_DQ_DQ_RX_CFG[msr];
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_DQ_RX_M0_CFG_RGB_MODE, cfg->data_mode);
@@ -24,7 +24,7 @@ void dq_dq_rx_gb_set_mode_reg_if(dq_reg_t *dq_reg,
 *******************************************************************************/
 void dq_dqs_rx_gb_set_mode_reg_if(dq_reg_t *dq_reg,
                                   wddr_msr_t msr,
-                                  rx_gb_cfg_t *cfg)
+                                  const rx_gb_cfg_t *cfg)
 {
     uint32_t reg_val = dq_reg->DDR_DQ_DQS_RX_CFG[msr];
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_DQS_RX_M0_CFG_RGB_MODE, cfg->data_mode);
@@ -36,7 +36,7 @@ void dq_dqs_rx_gb_set_mode_reg_if(dq_reg_t *dq_reg,
 
 void dq_dqs_tx_gb_set_mode_reg_if(dq_reg_t *dq_reg,
                                   wddr_msr_t msr,
-                                  tx_gb_cfg_t *cfg)
+                                  const tx_gb_cfg_t *cfg)
 {
     uint32_t reg_val = dq_reg->DDR_DQ_DQS_TX_CFG[msr];
     reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_DQS_TX_M0_CFG_TGB_MODE, cfg->data_mode);

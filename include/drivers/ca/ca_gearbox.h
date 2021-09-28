@@ -28,7 +28,7 @@
  */
 void ca_dq_rx_gb_set_mode_reg_if(ca_reg_t *ca_reg,
                                  wddr_msr_t msr,
-                                 rx_gb_cfg_t *cfg);
+                                 const rx_gb_cfg_t *cfg);
 
 /*******************************************************************************
 **                            CK
@@ -46,7 +46,7 @@ void ca_dq_rx_gb_set_mode_reg_if(ca_reg_t *ca_reg,
  */
 void ca_dqs_rx_gb_set_mode_reg_if(ca_reg_t *ca_reg,
                                  wddr_msr_t msr,
-                                 rx_gb_cfg_t *cfg);
+                                 const rx_gb_cfg_t *cfg);
 
 /**
  * @brief   CA DQ Transmit (TX) Gearbox Set Mode Register Interface
@@ -61,6 +61,6 @@ void ca_dqs_rx_gb_set_mode_reg_if(ca_reg_t *ca_reg,
  */
 void ca_dqs_tx_gb_set_mode_reg_if(ca_reg_t *ca_reg,
                                  wddr_msr_t msr,
-                                 tx_gb_cfg_t *cfg);
+                                 const tx_gb_cfg_t *cfg);
 
 #endif /* _CA_GEARBOX_H_ */

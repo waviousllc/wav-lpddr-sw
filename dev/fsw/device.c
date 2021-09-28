@@ -7,6 +7,7 @@
 #include <fsw/device.h>
 #include <kernel/irq.h>
 #include <kernel/io.h>
+#include <pll/table.h>
 #include <wddr/irq_map.h>
 #include <wddr/memory_map.h>
 #include <firmware/phy_task.h>
