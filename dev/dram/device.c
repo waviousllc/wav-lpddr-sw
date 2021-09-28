@@ -24,7 +24,7 @@
 
 /** @brief  Internal Function for updating DRAM Mode Register */
 static void dram_write_mode_register(dram_dev_t *dram,
-                                     dfi_buffer_dev_t *dfi_buffer,
+                                     dfi_dev_t *dfi,
                                      uint8_t mr,
                                      uint8_t op);
 
@@ -73,62 +73,58 @@ static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buf
                                                      uint16_t time_offset);
 
 void dram_init(dram_dev_t *dram,
-               dram_freq_cfg_t *dram_cfg,
-               dram_freq_cal_t *dram_cal)
+               dram_freq_cfg_t *dram_cfg)
 {
     dram->mr13 = 0;
-    dram_frequency_set(dram, dram_cfg, dram_cal);
+    dram_frequency_set(dram, dram_cfg);
 }
 
 void dram_frequency_set(dram_dev_t *dram,
-                        dram_freq_cfg_t *dram_cfg,
-                        dram_freq_cal_t *dram_cal)
+                        dram_freq_cfg_t *dram_cfg)
 {
     dram->cfg = dram_cfg;
-    dram->cal = dram_cal;
 }
 
-void dram_power_down(__UNUSED__ dram_dev_t *dram, dfi_buffer_dev_t *dfi_buffer)
+void dram_power_down(__UNUSED__ dram_dev_t *dram, dfi_dev_t *dfi)
 {
     dfi_tx_packet_buffer_t packet_buffer;
 
     dfi_tx_packet_buffer_init(&packet_buffer);
     create_ck_packet_sequence(&packet_buffer, 1);
     create_ck_packet_sequence(&packet_buffer, 10);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
-void dram_idle(__UNUSED__ dram_dev_t *dram, dfi_buffer_dev_t *dfi_buffer)
+void dram_idle(__UNUSED__ dram_dev_t *dram, dfi_dev_t *dfi)
 {
     dfi_tx_packet_buffer_t packet_buffer;
     dfi_tx_packet_buffer_init(&packet_buffer);
     create_ck_packet_sequence(&packet_buffer, 1);
     create_cke_packet_sequence(&packet_buffer, 30);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_frequency_init(dram_dev_t *dram,
-                         dfi_buffer_dev_t *dfi_buffer,
-                         dram_freq_cfg_t *dram_cfg,
-                         dram_freq_cal_t *dram_cal)
+                         dfi_dev_t *dfi,
+                         dram_freq_cfg_t *dram_cfg)
 {
     dfi_tx_packet_buffer_t packet_buffer;
 
     // Initialize TX Packet Buffer
     dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_prepare_mrw_update(dram, &packet_buffer, dram_cfg, dram_cal);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dram_prepare_mrw_update(dram, &packet_buffer, dram_cfg);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 
     // Update DRAM frequency after sending MRW to ensure previous tables
     // are used to send MRW.
-    dram_frequency_set(dram, dram_cfg, dram_cal);
+    dram_frequency_set(dram, dram_cfg);
 }
 
 void dram_cbt_enter(dram_dev_t *dram,
-                    dfi_buffer_dev_t *dfi_buffer)
+                    dfi_dev_t *dfi)
 {
     dfi_tx_packet_buffer_t packet_buffer;
 
@@ -138,12 +134,12 @@ void dram_cbt_enter(dram_dev_t *dram,
     dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
     create_cke_packet_sequence(&packet_buffer, 1);
     create_ck_packet_sequence(&packet_buffer, 15);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_cbt_exit(dram_dev_t *dram,
-                   dfi_buffer_dev_t *dfi_buffer)
+                   dfi_dev_t *dfi)
 {
     dfi_tx_packet_buffer_t packet_buffer;
 
@@ -152,91 +148,91 @@ void dram_cbt_exit(dram_dev_t *dram,
     dfi_tx_packet_buffer_init(&packet_buffer);
     create_ck_packet_sequence(&packet_buffer, 15);
     create_cke_packet_sequence(&packet_buffer, 1);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
+    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, dram->cfg->t_vref_ca_long);
     create_cke_packet_sequence(&packet_buffer, 1);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 void dram_set_fsp_wr(dram_dev_t *dram,
-                     dfi_buffer_dev_t *dfi_buffer,
+                     dfi_dev_t *dfi,
                      uint8_t fsp)
 {
     dram->mr13 &= ~FSP_WR__MSK;
     dram->mr13 |= (fsp << FSP_WR__SHFT);
 
-    dram_write_mode_register_13(dram, dfi_buffer, dram->mr13);
+    dram_write_mode_register_13(dram, dfi, dram->mr13);
 }
 
 void dram_set_fsp_op(dram_dev_t *dram,
-                     dfi_buffer_dev_t *dfi_buffer,
+                     dfi_dev_t *dfi,
                      uint8_t fsp)
 {
     dram->mr13 &= ~FSP_OP__MSK & ~FSP_WR__MSK;
     dram->mr13 |= (fsp << FSP_OP__SHFT) | (fsp << FSP_WR__SHFT);
 
-    dram_write_mode_register_13(dram, dfi_buffer, dram->mr13);
+    dram_write_mode_register_13(dram, dfi, dram->mr13);
 }
 
 void dram_set_dq_vref(dram_dev_t *dram,
-                      dfi_buffer_dev_t *dfi_buffer,
+                      dfi_dev_t *dfi,
                       uint8_t vref_setting)
 {
-    dram_write_mode_register_14(dram, dfi_buffer, vref_setting);
+    dram_write_mode_register_14(dram, dfi, vref_setting);
 }
 
 void dram_wrlvl_enable(dram_dev_t *dram,
-                       dfi_buffer_dev_t *dfi_buffer)
+                       dfi_dev_t *dfi)
 {
     dram->cfg->mr2 |= WRLVL__MSK;
 
-    dram_write_mode_register_2(dram, dfi_buffer, dram->cfg->mr2);
+    dram_write_mode_register_2(dram, dfi, dram->cfg->mr2);
 }
 
 void dram_wrlvl_disable(dram_dev_t *dram,
-                        dfi_buffer_dev_t *dfi_buffer)
+                        dfi_dev_t *dfi)
 {
     dram->cfg->mr2 &= ~WRLVL__MSK;
 
-    dram_write_mode_register_2(dram, dfi_buffer, dram->cfg->mr2);
+    dram_write_mode_register_2(dram, dfi, dram->cfg->mr2);
 }
 
 void dram_vrcg_enable(dram_dev_t *dram,
-                      dfi_buffer_dev_t *dfi_buffer)
+                      dfi_dev_t *dfi)
 {
     dram->mr13 |= VRCG__MSK;
-    dram_write_mode_register_13(dram, dfi_buffer, dram->mr13);
+    dram_write_mode_register_13(dram, dfi, dram->mr13);
 }
 
 void dram_vrcg_disable(dram_dev_t *dram,
-                       dfi_buffer_dev_t *dfi_buffer)
+                       dfi_dev_t *dfi)
 {
     dram->mr13 &= ~VRCG__MSK;
-    dram_write_mode_register_13(dram, dfi_buffer, dram->mr13);
+    dram_write_mode_register_13(dram, dfi, dram->mr13);
 }
 
 void dram_write_mode_register_13(dram_dev_t *dram,
-                                 dfi_buffer_dev_t *dfi_buffer,
+                                 dfi_dev_t *dfi,
                                  uint8_t mr13)
 {
     dram->mr13 = mr13;
-    return dram_write_mode_register(dram, dfi_buffer, 0xD, dram->mr13);
+    return dram_write_mode_register(dram, dfi, 0xD, dram->mr13);
 }
 
 void dram_write_mode_register_14(dram_dev_t *dram,
-                                 dfi_buffer_dev_t *dfi_buffer,
+                                 dfi_dev_t *dfi,
                                  uint8_t mr14)
 {
-    dram->cal->mr14 = mr14;
-    return dram_write_mode_register(dram, dfi_buffer, 0xE, dram->cal->mr14);
+    dram->cfg->mr14 = mr14;
+    return dram_write_mode_register(dram, dfi, 0xE, dram->cfg->mr14);
 }
 
 void dram_write_mode_register_2(dram_dev_t *dram,
-                                dfi_buffer_dev_t *dfi_buffer,
+                                dfi_dev_t *dfi,
                                 uint8_t mr2)
 {
     dram->cfg->mr2 = mr2;
-    return dram_write_mode_register(dram, dfi_buffer, 0x2, dram->cfg->mr2);
+    return dram_write_mode_register(dram, dfi, 0x2, dram->cfg->mr2);
 }
 
 
@@ -517,8 +513,7 @@ wddr_return_t dram_prepare_wrlvl_sequence(dram_dev_t *dram,
 
 void dram_prepare_mrw_update(dram_dev_t *dram,
                              dfi_tx_packet_buffer_t *packet_buffer,
-                             dram_freq_cfg_t *dram_cfg,
-                             dram_freq_cal_t *dram_cal)
+                             dram_freq_cfg_t *dram_cfg)
 {
     create_cke_packet_sequence(packet_buffer, 1);
 
@@ -530,15 +525,15 @@ void dram_prepare_mrw_update(dram_dev_t *dram,
         create_cke_packet_sequence(packet_buffer, 1);
         dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0B, dram_cfg->mr11, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0C, dram_cal->mr12, 10);
+        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0C, dram_cfg->mr12, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0E, dram_cal->mr14, dram_cfg->t_vref_ca_long);
+        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0E, dram_cfg->mr14, dram_cfg->t_vref_ca_long);
         create_cke_packet_sequence(packet_buffer, 1);
     }
 }
 
 static void dram_write_mode_register(dram_dev_t *dram,
-                                     dfi_buffer_dev_t *dfi_buffer,
+                                     dfi_dev_t *dfi,
                                      uint8_t mr,
                                      uint8_t op)
 {
@@ -547,7 +542,7 @@ static void dram_write_mode_register(dram_dev_t *dram,
     dfi_tx_packet_buffer_init(&packet_buffer);
     dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, mr, op, 1);
     create_cke_packet_sequence(&packet_buffer, 1);
-    dfi_buffer_fill_and_send_packets(dfi_buffer, &packet_buffer.list);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
