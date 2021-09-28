@@ -75,7 +75,6 @@ void pll_boot(pll_dev_t *pll);
  *
  * @param[in]   pll     pointer to PLL device.
  * @param[in]   freq_id the frequency id of the new frequency being prepared.
- * @param[in]   cal     pointer to PLL calibration data for the given frequency.
  * @param[in]   cfg     pointer to PLL configuration data for the given
  *                      frequency.
  *
@@ -83,7 +82,6 @@ void pll_boot(pll_dev_t *pll);
  */
 void pll_prepare_vco_switch(pll_dev_t *pll,
                             uint8_t freq_id,
-                            pll_freq_cal_t *cal,
                             pll_freq_cfg_t *cfg);
 /**
  * @brief   Phase Lock Loop (PLL) Switch VCO
@@ -126,13 +124,11 @@ void pll_disable_vco(pll_dev_t *pll);
  *          Calibrated values are stored in the frequency calibration structure.
  *
  * @param[in]   pll     pointer to PLL device.
- * @param[in]   cal     pointer to PLL calibration structure.
  * @param[in]   cfg     pointer to PLL configuration structure.
  *
  * @return      void
  */
 void pll_calibrate_vco(pll_dev_t *pll,
-                       pll_freq_cal_t *cal,
                        pll_freq_cfg_t *cfg);
 
 
