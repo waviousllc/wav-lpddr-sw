@@ -15,6 +15,14 @@ void dfi_fifo_enable_ca_rdata_loopback_reg_if(dfich_reg_t *dfich_reg, bool enabl
     dfich_reg->DDR_DFICH_TOP_1_CFG = reg_val;
 }
 
+void dfi_fifo_rdout_en_ovr_reg_if(dfich_reg_t *dfich_reg, bool ovr_sel, bool ovr)
+{
+    uint32_t reg_val = dfich_reg->DDR_DFICH_TOP_1_CFG;
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_RDOUT_EN_OVR_SEL, ovr_sel);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_RDOUT_EN_OVR, ovr);
+    dfich_reg->DDR_DFICH_TOP_1_CFG = reg_val;
+}
+
 void dfi_fifo_enable_clock_reg_if(dfich_reg_t *dfich_reg)
 {
     uint32_t reg_val = dfich_reg->DDR_DFICH_TOP_1_CFG;

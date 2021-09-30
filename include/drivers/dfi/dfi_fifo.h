@@ -43,6 +43,22 @@ enum
 void dfi_fifo_enable_ca_rdata_loopback_reg_if(dfich_reg_t *dfi_ch_reg,
                                               bool enable);
 
+
+/**
+ * @brief   DFI FIFO Read Data Out Enable Override Register Interface
+ *
+ * @details Sets the read data out enable override for the DFI interface.
+ *
+ * @param[in]   dfich_reg   pointer to DFICH register space.
+ * @param[in]   ovr_sel     flag to indicate if SW should override rdout.
+ * @param[in]   ovr         flag to indicate if override output is HIGH.
+ *
+ * @return      void
+ */
+void dfi_fifo_rdout_en_ovr_reg_if(dfich_reg_t *dfich_reg,
+                                  bool ovr_sel,
+                                  bool ovr);
+
 /**
  * @brief   DFI FIFO Enable Clock Register Interface
  *
