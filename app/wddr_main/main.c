@@ -58,20 +58,30 @@
 #define BOOT_CALIBRATION            (true)
 #define BOOT_TRAINING               (false)
 
+
+/*******************************************************************************
+**                            STRUCTURE DECLARATIONS
+*******************************************************************************/
+typedef enum app_state {
+    APP_STATE_IDLE,
+    APP_STATE_READY,
+    APP_STATE_ERROR,
+} app_state_t;
+
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 static void vMainTask( void *pvParameters );
+
 /** @brief  Internal function to handle received messages */
-static void handle_message(const Message_t *message);
+static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *state);
+
 /** @brief  Centralized shutdown function */
 static void shutdown(uint32_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-static wddr_message_interface_t message_intf;
-
 extern uint32_t __start;
 img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
     .image_magic = IMAGE_MAGIC,
@@ -119,34 +129,40 @@ int main( void )
 /*-----------------------------------------------------------*/
 static void vMainTask( void *pvParameters )
 {
-    // Boot Complete Message as Initial Message
-    Message_t message = {
-        .id = MESSAGE_GENERAL_MCU_BOOT_RESP,
-        .data = 0x00,
+    wddr_message_interface_t message_intf;
+    app_state_t phy_state = APP_STATE_IDLE;
+    Message_t req;
+
+    // Interface Ready as initial message
+    Message_t resp = {
+        .id = MESSAGE_GENERAL_INTF_READY_RESP,
+        .data = WDDR_DEVICE_ID,
     };
 
     // Initialize messenger interface
     wddr_messenger_init(&message_intf);
 
-    // TODO: Send MSG Interface Ready message
-    // TODO: Receive Boot Message to continue
-
-    // Boot PHY (calibrate but don't train)
-    if (firmware_phy_start(BOOT_CALIBRATION, BOOT_TRAINING) == pdFAIL)
-    {
-        shutdown(0x10001);
-    }
-
-    // Send Boot Complete Message
-    wddr_messenger_send(&message_intf, &message);
+    // Send MSG Interface Ready message
+    wddr_messenger_send(&message_intf, &resp);
 
     // Main receiving loop
     for (;;)
     {
-        if (wddr_messenger_receive(&message_intf, &message))
+        if (wddr_messenger_receive(&message_intf, &req))
         {
+            // Disable message interrupts while processing
+            interrupt_disable(MESSENGER_REQ_INTERRUPT_MSK |
+                              MESSENGER_ACK_INTERRUPT_MSK);
+
             // Process message
-            handle_message(&message);
+            handle_message(&req, &resp, &phy_state);
+
+            // Send response
+            wddr_messenger_send(&message_intf, &resp);
+
+            // Re-enable messaging interrupts
+            interrupt_enable(MESSENGER_REQ_INTERRUPT_MSK |
+                            MESSENGER_ACK_INTERRUPT_MSK);
         }
     }
 }
@@ -227,40 +243,95 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 }
 
 /*-----------------------------------------------------------*/
-void handle_message(const Message_t *message)
+static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *state)
 {
-    uint8_t freq_id;
-    Message_t resp_msg = {0, 0};
+    Message_t local_resp = {0x0, 0x0};
+    UBaseType_t status = pdPASS;
 
-    // Disable message interrupts while processing
-    interrupt_disable(MESSENGER_REQ_INTERRUPT_MSK |
-                      MESSENGER_ACK_INTERRUPT_MSK);
-
-    switch(message->id)
+    switch(req->id)
     {
         // Prep Request
         case MESSAGE_WDDR_FREQ_PREP_REQ:
+            uint8_t freq_id;
+
             // Extract Frequency ID
-            freq_id = GET_REG_FIELD(message->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
+            freq_id = GET_REG_FIELD(req->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
 
-            // Prepare for switch
-            if (firmware_phy_prep_switch(freq_id) == pdFAIL)
+            do
             {
-                // Mark as failure
-                resp_msg.data = UPDATE_REG_FIELD(0x0, WDDR_FREQ_PREP_RSP__STATUS, 0x1);
-            }
+                // Message only valid in ready state
+                if (*state != APP_STATE_READY)
+                {
+                    status = pdFAIL;
+                    break;
+                }
 
-            resp_msg.id = MESSAGE_WDDR_FREQ_PREP_RESP;
-            resp_msg.data = UPDATE_REG_FIELD(resp_msg.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
-            wddr_messenger_send(&message_intf, &resp_msg);
+                // Prepare for switch if phy is ready
+                status = firmware_phy_prep_switch(freq_id);
+                if (status == pdPASS)
+                {
+                    break;
+                }
+
+                // Mark as error state
+                *state = APP_STATE_ERROR;
+            } while (0);
+
+            // Craft response message
+            local_resp.id = MESSAGE_WDDR_FREQ_PREP_RESP;
+            local_resp.data = UPDATE_REG_FIELD(0x0, WDDR_FREQ_PREP_RSP__STATUS, !status);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, WDDR_FREQ_PREP_RSP__FREQ_ID, freq_id);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, WDDR_FREQ_PREP_RSP__RESP_CODE, *state);
+            break;
+
+        case MESSAGE_GENERAL_MCU_BOOT_REQ:
+            do
+            {
+                // Message only valid in idle state
+                if (*state != APP_STATE_IDLE)
+                {
+                    status = pdFAIL;
+                    break;
+                }
+
+                // Boot PHY based on request
+                status = firmware_phy_start(GET_REG_FIELD(req->data, WDDR_BOOT_REQ__CAL),
+                                            GET_REG_FIELD(req->data, WDDR_BOOT_REQ__TRAIN));
+                if (status == pdFAIL)
+                {
+                    break;
+                }
+
+                // Successfully booted
+                *state = APP_STATE_READY;
+            } while (0);
+
+            // Craft response message
+            local_resp.id = MESSAGE_GENERAL_MCU_BOOT_RESP;
+            local_resp.data = UPDATE_REG_FIELD(0x0, GENERAL_MCU_BOOT_RESP__STATUS, !status);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, GENERAL_MCU_BOOT_RESP__CODE, *state);
+            break;
+
+        case MESSAGE_GENERAL_FW_VER_REQ:
+            local_resp.id = MESSAGE_GENERAL_FW_VER_RESP;
+            local_resp.data = UPDATE_REG_FIELD(0x0, GENERAL_FW_VER_RESP__MAJOR, FW_VERSION_MAJOR);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, GENERAL_FW_VER_RESP__MAJOR, FW_VERSION_MINOR);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, GENERAL_FW_VER_RESP__MAJOR, FW_VERSION_PATCH);
+            break;
+
+        case MESSAGE_GENERAL_HW_VER_REQ:
+            local_resp.id = MESSAGE_GENERAL_HW_VER_RESP;
+            // TODO: These should be formalized
+            local_resp.data = UPDATE_REG_FIELD(0x0, GENERAL_HW_VER_RESP__MAJOR, 0x1);
+            local_resp.data = UPDATE_REG_FIELD(local_resp.data, GENERAL_HW_VER_RESP__MINOR, 0x0);
             break;
         default:
             break;
     }
 
-    // Re-enable messaging interrupts
-    interrupt_enable(MESSENGER_REQ_INTERRUPT_MSK |
-                     MESSENGER_ACK_INTERRUPT_MSK);
+    // Update response
+    rsp->id = local_resp.id;
+    rsp->data = local_resp.data;
 }
 
 /*-----------------------------------------------------------*/
