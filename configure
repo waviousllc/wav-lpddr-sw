@@ -7,8 +7,8 @@ BUILD_TYPE=""
 CONFIG_CAL_PLL="true"
 CONFIG_CAL_ZQCAL="true"
 CONFIG_CAL_SA="true"
-CONFIG_DRAM_TRAIN="false"
-CONFIG_CAL_PERIODIC="false"
+CONFIG_DRAM_TRAIN="true"
+CONFIG_CAL_PERIODIC="true"
 
 # Common build prep function
 init_build_common() {
