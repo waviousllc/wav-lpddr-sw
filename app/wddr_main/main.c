@@ -54,10 +54,9 @@
 #define MESSENGER_TASK_PRIORITY     (tskIDLE_PRIORITY + 2)
 #define MAIN_TASK_PRIORITY          (tskIDLE_PRIORITY + 3)
 
-// Boot configuration
-#define BOOT_CALIBRATION            (true)
-#define BOOT_TRAINING               (false)
-
+// Stack size
+#define MESSENGER_STACK_SIZE        (configMINIMAL_STACK_SIZE)
+#define MAIN_STACK_SIZE             (configMINIMAL_STACK_SIZE * 2)
 
 /*******************************************************************************
 **                            STRUCTURE DECLARATIONS
@@ -109,10 +108,10 @@ int main( void )
     firmware_phy_init();
 
     // Create Messenger Task
-    xMessengerTaskInit(MESSENGER_TASK_PRIORITY, configMINIMAL_STACK_SIZE, 1);
+    xMessengerTaskInit(MESSENGER_TASK_PRIORITY, MESSENGER_STACK_SIZE, 1);
 
     /* At this point, you can create queue,semaphore, task requested for your application */
-    xTaskCreate( vMainTask, "Main Task", configMINIMAL_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
+    xTaskCreate( vMainTask, "Main Task", MAIN_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, NULL );
 
     /* Start the tasks and timer running. */
     /* Here No task are defined, so if we start the Scheduler 2 tasks will running (Timer and Idle) */
