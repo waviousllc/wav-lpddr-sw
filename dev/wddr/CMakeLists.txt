@@ -1,44 +1,33 @@
-set(LIB_NAME wddr)
-set(
-    SRC
-    ${CMAKE_CURRENT_LIST_DIR}/device.c
+FILE(
+    GLOB_RECURSE
+    WDDR_DEV_SOURCES
+    ${WAV_WDDR_TOP_LEVEL}/dev/*/*.c
 )
 
 set(
     INCLUDE
     ${WAV_WDDR_TOP_LEVEL}/include/dev/
-    ${WAV_WDDR_TOP_LEVEL}/include/fsm/
 )
 
 add_library(
-    ${LIB_NAME}
+    wddr
     STATIC
-    ${SRC}
-)
-
-target_compile_definitions(
-    ${LIB_NAME}
-    PRIVATE
-    -DCONFIG_CALIBRATE_PLL=${CONFIG_CALIBRATE_PLL}
-    -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CALIBRATE_ZQCAL}
-    -DCONFIG_CALIBRATE_SA=${CONFIG_CALIBRATE_SA}
+    ${WDDR_DEV_SOURCES}
 )
 
 target_include_directories(
-    ${LIB_NAME}
+    wddr
     PUBLIC
     ${INCLUDE}
 )
 
+add_library(
+    wddr_ext
+    INTERFACE
+)
+
 target_link_libraries(
-    ${LIB_NAME}
+    wddr
     wddr_driver
-    pll_fsm
-    fs_fsm
-    dfi_master_fsm
-    dfi_update_fsm
-    path
-    dfi
-    pll
-    dram
+    wddr_ext
 )

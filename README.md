@@ -28,20 +28,18 @@ drivers in order to provide better abstractions or even combine multiple drivers
 and device to create a higher-level device. Devices sit at the layer above
 drivers.
 
-### Finite State Machines (fsm)
-Finite state machines are the highest level of device abstraction. They provide
-a standard interface for manipulating one or more devices that have a complex
-interaction model. A great example of this is the Frequency Switch FSM which
-relies on PLL and Frequency Switch hardware being in sync. FSMs are built on top
-of the standard FSM module that is part of the RTOS kernel.
+### PHY Firmware (firmware)
+PHY Firmware is the management entity that controls the PHY, as well as performs
+state management. It responds to events from DFI interface (via IRQs) or events
+requested through the PHY Firmware API. The PHY Firmware API encapsulates all PHY
+features that an application can control, such as frequency switch prep.
 
 ### Applications (app)
 Applications are complete programs that are meant to run on LPDDR hardware.
-These applications can be "fully baked" mission type applications (`wddr_boot`)
-or simple apps that test only a specific device or driver. Typically, Wavious
-builds several test applications used to tests SW interaction with various
-software components. For this repository, only mission-mode applications
-have been included.
+Applications should interact with the PHY via the PHY Firmware API. They are
+not able to control or update the PHY directly. Typically, applications can be
+"fully baked" mission type applications (`wddr_boot`) or test applications.
+For this repository, only mission-mode applications have been included.
 
 ## Project Initialization
   - `git clone https://github.com/waviousllc/wav-lpddr-sw.git`
@@ -74,6 +72,8 @@ make
 | CONFIG_CALIBRATE_PLL     |    true        | Enables PLL calibration at boot       |
 | CONFIG_CALIBRATE_ZQCAL   |    true        | Enables ZQCAL calibration at boot     |
 | CONFIG_CALIBRATE_SA      |    true        | Enables Sense Amp calibration at boot |
+| CONFIG_DRAM_TRAIN        |    false       | Enables DRAM Training at boot         |
+| DCONFIG_CAL_PERIODIC     |    false       | Enables PHY Periodic Calibration      |
 
 #### Changing Configurations
 It is recommended that all binaries are built with the default configuration. However,
@@ -84,8 +84,22 @@ After running the commands given in the [Building](#building) section of this do
 the configuration can be updated as follows:
 ~~~~
 cd build
-cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false>
+cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false> -DCONFIG_CAL_PERIODIC=<true|false>
 make
 ~~~~
 
 The generic command: `cmake .. -D<CMAKE_VARIABLE_NAME>=<VAL>`
+
+### Adding Extended Functionality to Builds
+In order to allow for extended capabilites not required for PHY functionality
+(such as training), an interface library was added to the WDDR device, named
+wddr_ext. In order to utilize this library, you can add additional source and
+include files to this library to be included when building the WDDR device
+library. This will enable external functions to be added to the build to
+override weak functions within the WDDR device (such as wddr_train).
+
+## DRAM Training
+Currently, the WDDR device includes the necessary hooks to perform DRAM training
+during boot of the PHY, but the algorithms are not included in this release.
+These algorithms can be added using the wddr_ext interface library. If training
+is a requirement of your application, contact Wavious for support.

@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <compiler.h>
 #include <dfi/command.h>
+#include <dram/table.h>
 #include <kernel/list.h>
 
 #define PACKET_BUFFER_DEPTH         (32)
@@ -30,6 +31,23 @@
 #define DFI_PACK_PARITY_WIDTH       (1)
 #define DFI_PACK_VALID_WIDTH        (1)
 #define DFI_PACK_TIME_WIDTH         (16)
+
+/**
+ * @brief   Packet Group Info Structure
+ *
+ * @details Structure containing relevant information needed to fill
+ *          appropriate phases within a packet.
+ *
+ * dfi_ts_start     Timestamp offset start of packet in DFI cycles.
+ * cycle_offset     DRAM cycle offset used to skip phases in a packet.
+ * phase_remaining  Number of phases remaining to be filled.
+ */
+typedef struct packet_group_info_t
+{
+    uint16_t dfi_ts_start;
+    uint16_t cycle_offset;
+    uint16_t phase_remaining;
+} packet_group_info_t;
 
 /**
  * @brief   Packet Data Mask Enumerations
@@ -511,8 +529,8 @@ void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer);
  *
  * @return      void
  */
-void dfi_rx_packet_buffer_data_compare(dfi_rx_packet_buffer_t *buffer,
-                                       command_data_t *expected,
+void dfi_rx_packet_buffer_data_compare(const dfi_rx_packet_buffer_t *buffer,
+                                       const command_data_t *expected,
                                        wddr_dq_byte_t dq_byte,
                                        packet_data_mask_t data_mask,
                                        uint8_t num,
@@ -533,8 +551,8 @@ void dfi_rx_packet_buffer_data_compare(dfi_rx_packet_buffer_t *buffer,
  * @retval      WDDR_SUCCESS if added.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                        uint16_t time_offset);
+packet_item_t * create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                          uint16_t time_offset);
 
 /**
  * @brief   Create CKE Packet Sequence
@@ -550,31 +568,101 @@ wddr_return_t create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
  * @retval      WDDR_SUCCESS if added.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t create_cke_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                         uint16_t time_offset);
+packet_item_t * create_cke_packet_sequence(dfi_tx_packet_buffer_t *buffer,
+                                           uint16_t time_offset);
 
 /**
- * @brief   Create MRW Packet Sequence
+ * @brief   Create Packet Group Info
  *
- * @details Creates a set of packets in order to send the specified MRW to
- *          the DRAM.
+ * @details Creates group info required for filling packet with the appropriate
+ *          phases and offsets being accounted for.
  *
- * @param[in]   buffer          pointer to packet buffer to save packet to.
+ * @param[in]   group_info      pointer to group info structure to populate.
  * @param[in]   ratio           ratio of DFI CK to DRAM CK.
- * @param[in]   cs              chipselect value.
- * @param[in]   mode_register   which mode reigster number.
- * @param[in]   op              mode register op data.
- * @param[in]   time_offset     time offset from previous packet that the packet
- *                              should be sent.
+ * @param[in]   dram_clk_cycles group offset specified in DRAM cycles.
+ * @param[in]   phase_length    duration of group specified in phases.
  *
- * @return      returns whether packet added to the packet buffer.
- * @retval      WDDR_SUCCESS if added.
- * @retval      WDDR_ERROR otherwise.
+ * @return      void.
  */
-wddr_return_t create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                        wddr_freq_ratio_t ratio,
-                                        chipselect_t cs,
-                                        uint8_t mode_register,
-                                        uint8_t op,
-                                        uint16_t time_offset);
+void create_packet_group_info(packet_group_info_t *group_info,
+                              wddr_freq_ratio_t ratio,
+                              uint16_t dram_clk_cycles,
+                              uint16_t phase_length);
+
+/**
+ * @brief   Fill Address Packet
+ *
+ * @details Fills correct command phases for the specified packet group by
+ *          populating cs and address data in packet.
+ *
+ * @param[in]   packet              pointer to packet to fill.
+ * @param[in]   group_info          pointer to packet group info structure.
+ * @param[in]   cycles_per_packet   number of DRAM cycles per packet
+ * @param[in]   command             pointer to command structure to send.
+ * @param[in]   phase_length        expected total phases to be populated.
+ *
+ * @return      void.
+ */
+void fill_address_packet(packet_item_t *packet,
+                         packet_group_info_t *group_info,
+                         uint8_t cycles_per_packet,
+                         command_t *command,
+                         uint16_t phase_length);
+
+/**
+ * @brief   Fill Read Data Packet
+ *
+ * @details Fills correct read phases for the specified packet group by
+ *          populating rddata_cs in packet.
+ *
+ * @param[in]   packet              pointer to packet to fill.
+ * @param[in]   group_info          pointer to packet group info structure.
+ * @param[in]   cs                  chipselect value.
+ * @param[in]   cycles_per_packet   number of DRAM cycles per packet
+ *
+ * @return      void.
+ */
+void fill_rddata_packet(packet_item_t *packet,
+                        packet_group_info_t *group_info,
+                        chipselect_t cs,
+                        uint8_t cycles_per_packet);
+
+/**
+ * @brief   Fill Write Data Enable Packet
+ *
+ * @details Fills correct write phases for the specified packet group by
+ *          populating wrdata_en in packet.
+ *
+ * @param[in]   packet              pointer to packet to fill.
+ * @param[in]   group_info          pointer to packet group info structure.
+ * @param[in]   cycles_per_packet   number of DRAM cycles per packet
+ *
+ * @return      void.
+ */
+void fill_wrdata_en_packet(packet_item_t *packet,
+                           packet_group_info_t *group_info,
+                           uint8_t cycles_per_packet);
+
+/**
+ * @brief   Fill Write Data Packet
+ *
+ * @details Fills correct write phases for the specified packet group by
+ *          populating wrdata, wrdata_mask, and wrdata_cs in packet.
+ *
+ * @param[in]   packet              pointer to packet to fill.
+ * @param[in]   group_info          pointer to packet group info structure.
+ * @param[in]   cs                  chipselect value.
+ * @param[in]   data                pointer to command data structure to send.
+ * @param[in]   cycles_per_packet   number of DRAM cycles per packet
+ * @param[in]   phase_length        expected total phases to be populated.
+ *
+ * @return      void.
+ */
+void fill_wrdata_packet(packet_item_t *packet,
+                        packet_group_info_t *group_info,
+                        chipselect_t cs,
+                        const command_data_t *data,
+                        uint8_t cycles_per_packet,
+                        uint16_t phase_length);
+
 #endif /* _DFI_PACKET_H_ */

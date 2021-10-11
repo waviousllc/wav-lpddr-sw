@@ -131,6 +131,7 @@ static void create_write_frame(command_frame_t frame[MAX_COMMAND_FRAMES],
                                uint8_t ap,
                                uint8_t bl)
 {
+    bl = bl == BL_32 ? 1 : 0;
     // Update CA Pins for this command
     frame[0].ca_pins = WR_1_CA_PINS | bl << 5;
     frame[1].ca_pins = (0x3 & bank_address) | ((column_address & 0x80) >> 3) | (ap << 5); //  BA2:0 | V | C9 | AP
@@ -204,11 +205,11 @@ void create_cbt_command(command_t *command,
     command->command_type = COMMAND_TYPE_CBT;
     create_cbt_write_frame(command->address, cs, ca_val);
 
-    command->data = data;
     for (uint8_t nn = 0; nn < MAX_DATA_SIZE; nn++)
     {
-        command->data->dq[0][nn] = vref_ca;
+        data->dq[0][nn] = vref_ca;
     }
+    command->data = data;
 }
 
 void create_wrfifo_command(command_t *command,

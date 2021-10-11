@@ -34,20 +34,14 @@ target_compile_definitions(
     -DGIT_SHA=\"${VERSION_GIT_SHA}\"
     -DGIT_DIRTY=${VERSION_DIRTY}
     -DGIT_AHEAD=${VERSION_AHEAD}
+    -DFW_VERSION_MAJOR=${VERSION_MAJOR}
+    -DFW_VERSION_MINOR=${VERSION_MINOR}
+    -DFW_VERSION_PATCH=${VERSION_PATCH}
 )
 
 target_link_libraries(
     ${PROJECT_NAME}
-    "-Wl,--start-group"
-    c
-    gcc
-    m
-    metal
-    kernel
-    freertos
-    wddr
-    clk_driver
-    "-Wl,--end-group"
+    phy_firmware
 )
 
 target_link_options(
@@ -57,12 +51,6 @@ target_link_options(
     -Wl,--defsym,__stack_size=0x200
     -Wl,--defsym,__heap_size=0x0
     -Wl,--build-id
-)
-
-add_custom_command(TARGET ${PROJECT_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_OBJDUMP} ${PROJECT_NAME} --source --all-headers --demangle --line-numbers --wide > ${PROJECT_NAME}.dump
-        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 bsp_post_build(${PROJECT_NAME})

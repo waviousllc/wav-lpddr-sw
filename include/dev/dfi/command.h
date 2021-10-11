@@ -80,8 +80,8 @@ typedef enum chipselect_t
  */
 typedef enum burst_length_t
 {
-    BL_16,
-    BL_32
+    BL_16 = 16,
+    BL_32 = 32
 } burst_length_t;
 
 /**
@@ -112,7 +112,7 @@ typedef struct command_t
 {
     command_type_t  command_type;
     command_frame_t address[MAX_COMMAND_FRAMES];
-    command_data_t  *data;
+    const command_data_t  *data;
 } command_t;
 
 /**

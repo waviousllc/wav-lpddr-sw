@@ -6,23 +6,21 @@
 #ifndef _DFI_DEV_H_
 #define _DFI_DEV_H_
 
+#include <dfi/driver.h>
 #include <dfi/table.h>
-#include <dfi/buffer_device.h>
 
 /**
  * @brief   DFI Device Structure
  *
  * @details DFI Device structure that agregrates all DFI components.
  *
- * base         base address of DFI device.
- * msr          current MSR configuration of DFI device.
- * dfi_buffer   DFI Buffer device.
+ * dfi_reg      DFI register space.
+ * dfich_reg    DFI Channel register space.
  */
 typedef struct dfi_dev_t
 {
-    uint32_t            base;
-    wddr_msr_t          msr;
-    dfi_buffer_dev_t    dfi_buffer;
+    dfi_reg_t   *dfi_reg;
+    dfich_reg_t *dfich_reg;
 } dfi_dev_t;
 
 /**
