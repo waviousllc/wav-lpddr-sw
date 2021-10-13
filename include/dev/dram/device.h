@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <dram/table.h>
 #include <dfi/buffer.h>
+#include <wddr/interface.h>
 
 /**
  * @brief   DRAM Device Structure

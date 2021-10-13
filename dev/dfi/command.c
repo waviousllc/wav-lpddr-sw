@@ -251,19 +251,13 @@ void create_refresh_all_banks_command(command_t *command, chipselect_t cs)
     create_refresh_all_banks_frame(command->address, cs);
 }
 
-wddr_return_t create_data_frame(command_data_t *data,
-                                wddr_dq_byte_t dq_byte,
-                                void *src,
-                                size_t len,
-                                uint8_t offset)
+void create_data_frame(command_data_t *data,
+                       wddr_dq_byte_t dq_byte,
+                       void *src,
+                       size_t len,
+                       uint8_t offset)
 {
-    if (data == NULL)
-    {
-        return WDDR_ERROR;
-    }
-
     offset = offset < MAX_DATA_SIZE ? offset : MAX_DATA_SIZE;
     len = len < MAX_DATA_SIZE - offset ? len : MAX_DATA_SIZE - offset;
     memcpy(&data->dq[dq_byte][offset], src, len);
-    return WDDR_SUCCESS;
 }

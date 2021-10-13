@@ -9,6 +9,7 @@
 #include <error.h>
 #include <cmn/driver.h>
 #include <cmn/table.h>
+#include <wddr/interface.h>
 
 /**
  * @brief   Common Device Structure

@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+/* Standard includes. */
+#include <compiler.h>
 
 /* FreeRTOS includes. */
 #include <FreeRTOS.h>
@@ -19,7 +21,7 @@
 /* LPDDR includes. */
 #include <wddr/memory_map.h>
 #include <wddr/irq_map.h>
-#include <wddr/device.h>
+#include <wddr/interface.h>
 
 /* Firmware includes. */
 #include <firmware/phy_task.h>
@@ -62,9 +64,8 @@ static void dfi_phyupd_timer_callback(TimerHandle_t xTimer);
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-static DECLARE_WDDR_TABLE(table);
-/** @note Place in .data section at cost of image size */
-static wddr_dev_t wddr __attribute__ ((section (".data"))) = {0};
+// Handle to WDDR device
+static wddr_handle_t wddr;
 
 // Handle to DFI PHYUPD Timer
 static TimerHandle_t xDfiPhyUpdTimer;
@@ -279,8 +280,9 @@ void fw_phy_task_init(void)
     configASSERT(fw_manager.mq == NULL);
     configASSERT(fw_manager.task == NULL);
 
-    // Initialize device and drivers
-    wddr_init(&wddr, WDDR_BASE_ADDR, &table);
+    // Initialize PHY
+    wddr = wddr_init(WDDR_BASE_ADDR);
+    configASSERT(wddr != NULL);
 
     // State machine initialization
     stateM_init(&fw_manager.fsm.fsw, &fswPrep, &errorState);
@@ -389,18 +391,14 @@ static fw_response_t handle_start_event(__UNUSED__ fw_phy_event_t event,
         return FW_RESP_FAILURE;
     }
 
-    if (wddr_boot(&wddr, boot_cfg) != WDDR_SUCCESS)
+    if (wddr_boot(wddr, boot_cfg) != WDDR_SUCCESS)
     {
         fw_manager.status.error = true;
         return FW_RESP_FAILURE;
     }
 
-    // Disable CTRLUPD interface
-    dfi_ctrlupd_ack_override_reg_if(wddr.dfi.dfi_reg, true, 0);
     disable_irq(MCU_FAST_IRQ_CTRLUPD_REQ);
-
-    // Turn on PLL interrupts
-    pll_set_loss_lock_interrupt_state(&wddr.pll, true);
+    wddr_disable_ctrlupd_interface(wddr);
 
     // Start the PHYUPD Timer
     if (xTimerStart(xDfiPhyUpdTimer, 0) == pdFAIL)
@@ -489,7 +487,7 @@ static void dfi_phyupd_timer_callback(TimerHandle_t xTimer)
     };
 
     // Perform calibration. Should there be a dedicated task instead?
-    wddr_iocal_calibrate(&wddr);
+    wddr_iocal_calibrate(wddr);
 
     // Submit event without blocking
     ret = __phy_task_notify(&msg, 0);
@@ -594,13 +592,9 @@ static void fsw_prepare_switch_handler(__UNUSED__ void *currentStateData,
     disable_irq(MCU_FAST_IRQ_INIT_START);
 
     // Prepare PHY
-    next_msr = fsw_get_next_msr(&wddr.fsw);
-    ret = wddr_prep_switch(&wddr, freq_id, next_msr);
+    next_msr = wddr_get_next_msr(wddr);
+    ret = wddr_prep_switch(wddr, freq_id, next_msr);
     configASSERT(ret == WDDR_SUCCESS);
-
-    // Indicate Prep is done
-    fsw_ctrl_set_prep_done_reg_if(wddr.fsw.fsw_reg, true);
-    fsw_ctrl_set_post_work_done_reg_if(wddr.fsw.fsw_reg, false, 0x0);
 
     // Enable INIT_START IRQ
     enable_irq(MCU_FAST_IRQ_INIT_START);
@@ -611,52 +605,13 @@ static void fsw_post_switch_handler(__UNUSED__ void *currentStateData,
                                     __UNUSED__ struct event *event,
                                     __UNUSED__ void *newStateData)
 {
-    // Indicate to PLL that switch occurred; disable previous vco
-    pll_switch_vco(&wddr.pll, false);
-    pll_disable_vco(&wddr.pll);
-
-    // Turn off pll interrupt
-    pll_set_lock_interrupt_state(&wddr.pll, false);
-
-    // Indicate Post Work Done
-    fsw_ctrl_set_post_work_done_reg_if(wddr.fsw.fsw_reg, false, 0x1);
-
-    // Put back in default state
-    fsw_ctrl_set_post_work_done_reg_if(wddr.fsw.fsw_reg, false, 0x0);
-    fsw_ctrl_set_prep_done_reg_if(wddr.fsw.fsw_reg, false);
-    fsw_ctrl_set_msr_toggle_en_reg_if(wddr.fsw.fsw_reg, 0x1);
-    fsw_ctrl_set_vco_toggle_en_reg_if(wddr.fsw.fsw_reg, 0x1);
+    wddr_handle_post_switch(wddr);
 }
 
 /*-----------------------------------------------------------*/
 static void fsw_pending_entry_handler(__UNUSED__ void *stateData,
                                       __UNUSED__ struct event *event)
 {
-    uint8_t init_start, init_complete;
-
-    // Wait for INIT_START to go low
-    do
-    {
-        init_start = dfi_get_init_start_status_reg_if(wddr.dfi.dfi_reg);
-    } while (init_start != 0x0);
-
-    // Override Init Complete and force low to Complete MRW
-    dfi_set_init_complete_ovr_reg_if(wddr.dfi.dfi_reg, true, 0x1);
-
-    // Wait for PHY to deassert INIT_COMPLETE
-    do
-    {
-        init_complete = dfi_get_init_complete_status_reg_if(wddr.dfi.dfi_reg);
-    } while (init_complete != 0x1);
-
-    // Set Post Work Done Override
-    fsw_ctrl_set_post_work_done_reg_if(wddr.fsw.fsw_reg, true, 0x0);
-
-    // Send MRW from DFI Buffer (This was filled during prep)
-    dfi_buffer_send_packets(&wddr.dfi);
-
-    // Must disable buffer when done
-    dfi_buffer_disable(&wddr.dfi);
 
     /**
      * Per DFI 5.0 Specification - Section 4.21:
@@ -688,11 +643,7 @@ static void fsw_pending_entry_handler(__UNUSED__ void *stateData,
         configASSERT(fw_manager.fsm.dfi.currentState == &dfiIdle);
     }
 
-    // Release Init Complete Override
-    dfi_set_init_complete_ovr_reg_if(wddr.dfi.dfi_reg, false, 0x1);
-
-    // Allow PLL lock interrupt
-    pll_set_lock_interrupt_state(&wddr.pll, true);
+    wddr_handle_pending_switch(wddr);
 }
 
 /*-----------------------------------------------------------*/
@@ -703,7 +654,7 @@ static void dfi_phymstr_pending_entry_handler(__UNUSED__ void *stateData,
     dfi_phymstr_req_t *req = (dfi_phymstr_req_t *) event->data;
 
     // Request PHY MASTER control
-    dfi_phymstr_req_assert_reg_if(wddr.dfi.dfi_reg, req);
+    wddr_phymstr_enter(wddr, req);
 
     // Enable PHY MASTER ACK IRQ
     enable_irq(MCU_FAST_IRQ_PHYMSTR_ACK);
@@ -715,7 +666,7 @@ static void dfi_phymstr_abort(void *currentStateData,
                              void *newStateData)
 {
     disable_irq(MCU_FAST_IRQ_PHYMSTR_ACK);
-    dfi_phymstr_req_deassert_reg_if(wddr.dfi.dfi_reg);
+    wddr_phymstr_exit(wddr);
 #if CONFIG_CAL_PERIODIC
     // Notify Periodic Calibration Task that event was aborted
     vComplete(&fw_manager.phyMstrEvent);
@@ -739,18 +690,18 @@ static void dfi_phymstr_exit_handler(void *stateData, struct event *event)
      *          is the state that the DRAM was put into by the Memory Controller
      *          per the PHY MASTER request parameters.
      */
-    dfi_phymstr_req_deassert_reg_if(wddr.dfi.dfi_reg);
+    wddr_phymstr_exit(wddr);
 }
 
 /*-----------------------------------------------------------*/
 static void dfi_ctrlupd_entry_handler(void *stateData, struct event *event)
 {
     // Perform IOCAL and update
-    wddr_iocal_calibrate(&wddr);
-    wddr_iocal_update_phy(&wddr);
+    wddr_iocal_calibrate(wddr);
+    wddr_iocal_update_phy(wddr);
 
-    // Done with update; deassert acknowledge
-    dfi_ctrlupd_deassert_ack_reg_if(wddr.dfi.dfi_reg);
+    // Inform PHY that update is done
+    wddr_ctrlupd_done(wddr);
 }
 
 /*-----------------------------------------------------------*/
@@ -759,8 +710,7 @@ static void dfi_phyupd_entry_handler(void *stateData, struct event *event)
     // Get update type from event data
     dfi_phyupd_type_t type = (dfi_phyupd_type_t) (uintptr_t) event->data;
 
-    // Request PHY UPDATE
-    dfi_phyupd_req_assert_reg_if(wddr.dfi.dfi_reg, type);
+    wddr_phyupd_enter(wddr, type);
 
     // Enable PHY UPDATE ACK IRQ
     enable_irq(MCU_FAST_IRQ_PHYUPD_ACK);
@@ -771,8 +721,8 @@ static void dfi_phyupd_update(void *currentStateData,
                               struct event *event,
                               void *newStateData)
 {
-    wddr_iocal_update_phy(&wddr);
-    dfi_phyupd_req_deassert_reg_if(wddr.dfi.dfi_reg);
+    wddr_iocal_update_phy(wddr);
+    wddr_phyupd_exit(wddr);
 }
 
 /*-----------------------------------------------------------*/
@@ -781,5 +731,5 @@ static void dfi_phyupd_abort(void *currentStateData,
                              void *newStateData)
 {
     disable_irq(MCU_FAST_IRQ_PHYUPD_ACK);
-    dfi_phyupd_req_deassert_reg_if(wddr.dfi.dfi_reg);
+    wddr_phyupd_exit(wddr);
 }

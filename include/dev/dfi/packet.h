@@ -10,7 +10,6 @@
 #include <stddef.h>
 #include <compiler.h>
 #include <dfi/command.h>
-#include <dram/table.h>
 #include <kernel/list.h>
 
 #define PACKET_BUFFER_DEPTH         (32)
