@@ -9,10 +9,12 @@ CONFIG_CAL_ZQCAL="true"
 CONFIG_CAL_SA="true"
 CONFIG_DRAM_TRAIN="true"
 CONFIG_CAL_PERIODIC="true"
+CONFIG_TARGET_PHY="wddr100"
 
 init_lpddr() {
   # Invoke RTOS configure script with addtional parameters
   args=(
+        -DCONFIG_TARGET_PHY=${CONFIG_TARGET_PHY}
         -DCONFIG_CALIBRATE_PLL=${CONFIG_CAL_PLL}
         -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CAL_ZQCAL}
         -DCONFIG_CALIBRATE_SA=${CONFIG_CAL_SA}
@@ -26,7 +28,8 @@ print_help() {
 echo "Usage: configure [OPTIONS]\n"
 echo "This program configures CMAKE for wavious lpddr project\n"
 echo "Options:"
-echo "-t, --build_type <Debug | Release>"
+echo "-t, --build_type  <Debug | Release>"
+echo "--target-phy      <wddr100>"
 echo "--no-pll-cal      (disables PLL calibration)"
 echo "--no-zqcal-cal    (disables ZQCAL calibration)"
 echo "--no-sa-cal       (disables SA calibration)"
@@ -37,6 +40,10 @@ echo "--periodic-cal    (enables periodic calibration)"
 PARAMS=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    --target-phy)
+      CONFIG_TARGET_PHY=$2
+      shift 2
+      ;;
     --no-pll-cal)
       CONFIG_CAL_PLL="false"
       shift 1
@@ -49,11 +56,11 @@ while [ $# -gt 0 ]; do
       CONFIG_CAL_SA="false"
       shift 1
       ;;
-     --dram-train)
-      CONFIG_DRAM_TRAIN="true"
+     --no-dram-train)
+      CONFIG_DRAM_TRAIN="false"
       ;;
-     --periodic-cal)
-      CONFIG_CAL_PERIODIC="true"
+     --no-periodic-cal)
+      CONFIG_CAL_PERIODIC="false"
       shift 1
       ;;
     -h | --help)

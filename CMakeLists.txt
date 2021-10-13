@@ -2,11 +2,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     project("WAV-LPDDR-SW" C ASM)
     cmake_minimum_required(VERSION 3.13)
 
-    # Set the output folder where your program will be created
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
     # Make sure everything is built for correct architecture
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
@@ -34,6 +29,12 @@ endif()
 ################################################################################
 ##                           CONFIGURATIONS
 ################################################################################
+SET(CONFIG_TARGET_PHY "wddr100" CACHE STRING "PHY configuration selected at compile time.")
+SET_PROPERTY(CACHE CONFIG_TARGET_PHY PROPERTY STRINGS wddr100)
+
+# Print the configured target
+message("TARGET:        ${CONFIG_TARGET_PHY}")
+
 # Set flag for skipping PLL calibration at boot
 set(CONFIG_CALIBRATE_PLL true CACHE BOOL "Flag to indicate if PLL calibration is performed at boot.")
 message("PLL CAL:       ${CONFIG_CALIBRATE_PLL}")
@@ -60,9 +61,9 @@ set(CONFIG_WAV_MCU_IRQ_EDGE_CFG 0x1FFFFBFC)
 
 ################################################################################
 ##                        SOURCE DIRECTORIES
-################################################################################/
+###############################################################################/
 # Build subdirectories
 add_subdirectory(${WAV_RTOS_TOP_LEVEL})
-add_subdirectory(dev)
+add_subdirectory(target)
 add_subdirectory(firmware)
 add_subdirectory(app)

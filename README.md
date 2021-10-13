@@ -9,7 +9,7 @@ This project is licensed as Apache-2.0. Previous releases used GPL-3.0 and
 LGPL-3.0.
 
 ## Project Organization
-At a high-level the project is organized into 5 main directories:
+At a high-level the project is organized into 6 main directories:
 
 ### Real Time Operating System (rtos)
 RTOS contains all of the source code for FreeRTOS and any additons that have
@@ -28,11 +28,24 @@ drivers in order to provide better abstractions or even combine multiple drivers
 and device to create a higher-level device. Devices sit at the layer above
 drivers.
 
+### Target (target)
+Targets are specific implementations of the LPDDR PHY. Different targets have
+different features or even memory maps. All devices and drivers exists within
+the directories described above, regardless of which targets supports those
+features. Each target selects the source code and header files for these
+entities and builds the particular set of drivers and devices that it needs for
+its implementation.
+
+The build system is setup such that a particular target can be built. To build
+for multiple targets, one must rerun the `configure` script, specifying the
+new target.
+
 ### PHY Firmware (firmware)
 PHY Firmware is the management entity that controls the PHY, as well as performs
 state management. It responds to events from DFI interface (via IRQs) or events
 requested through the PHY Firmware API. The PHY Firmware API encapsulates all PHY
-features that an application can control, such as frequency switch prep.
+features that an application can control, such as frequency switch prep. It
+interacts and controls the PHY through the PHY interface API.
 
 ### Applications (app)
 Applications are complete programs that are meant to run on LPDDR hardware.
@@ -74,6 +87,7 @@ make
 | CONFIG_CALIBRATE_SA      |    true        | Enables Sense Amp calibration at boot |
 | CONFIG_DRAM_TRAIN        |    false       | Enables DRAM Training at boot         |
 | DCONFIG_CAL_PERIODIC     |    false       | Enables PHY Periodic Calibration      |
+| DCONFIG_TARGET_PHY       |    wddr100     | Selects PHY Target to build           |
 
 #### Changing Configurations
 It is recommended that all binaries are built with the default configuration. However,
@@ -84,7 +98,7 @@ After running the commands given in the [Building](#building) section of this do
 the configuration can be updated as follows:
 ~~~~
 cd build
-cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false> -DCONFIG_CAL_PERIODIC=<true|false>
+cmake .. -DCONFIG_CALIBRATE_PLL=<true|false> -DCONFIG_CALIBRATE_ZQCAL=<true|false> -DCONFIG_CALIBRATE_SA=<true|false> -DCONFIG_DRAM_TRAIN=<true|false> -DCONFIG_CAL_PERIODIC=<true|false> -DCONFIG_TARGET_PHY=wddr100
 make
 ~~~~
 
@@ -92,10 +106,10 @@ The generic command: `cmake .. -D<CMAKE_VARIABLE_NAME>=<VAL>`
 
 ### Adding Extended Functionality to Builds
 In order to allow for extended capabilites not required for PHY functionality
-(such as training), an interface library was added to the WDDR device, named
-wddr_ext. In order to utilize this library, you can add additional source and
-include files to this library to be included when building the WDDR device
-library. This will enable external functions to be added to the build to
+(such as training), each target creates an extension library named wddr_ext.
+In order to utilize this library, one can add additional source and
+include files to this library to be included when building a particular target.
+This will enable external functions to be added to the build to
 override weak functions within the WDDR device (such as wddr_train).
 
 ## DRAM Training
