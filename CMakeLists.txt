@@ -63,7 +63,6 @@ set(CONFIG_WAV_MCU_IRQ_EDGE_CFG 0x1FFFFBFC)
 ################################################################################/
 # Build subdirectories
 add_subdirectory(${WAV_RTOS_TOP_LEVEL})
-add_subdirectory(drivers)
 add_subdirectory(dev)
 add_subdirectory(firmware)
 add_subdirectory(app)

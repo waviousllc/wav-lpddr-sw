@@ -135,11 +135,11 @@ void pll_prepare_vco_switch(pll_dev_t *pll, uint8_t freq_id, pll_freq_cfg_t *cfg
     }
 }
 
-wddr_return_t pll_switch_vco(pll_dev_t *pll, bool is_sw_switch)
+pll_return_t pll_switch_vco(pll_dev_t *pll, bool is_sw_switch)
 {
     if (pll->p_vco_next == NULL)
     {
-        return WDDR_ERROR;
+        return PLL_NOT_PREPPED;
     }
 
     // Perform switch via SW
@@ -153,7 +153,7 @@ wddr_return_t pll_switch_vco(pll_dev_t *pll, bool is_sw_switch)
     pll->p_vco_current = pll->p_vco_next;
     pll->p_vco_next = NULL;
 
-    return WDDR_SUCCESS;
+    return PLL_SUCCESS;
 }
 
 void pll_disable_vco(pll_dev_t *pll)

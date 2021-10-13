@@ -10,6 +10,7 @@
 #include <ca/driver.h>
 #include <channel/table.h>
 #include <sensamp/table.h>
+#include <wddr/interface.h>
 #include <wddr/phy_config.h>
 #include <error.h>
 

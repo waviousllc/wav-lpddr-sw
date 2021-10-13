@@ -15,25 +15,34 @@
 /* LPDDR includes. */
 #include <wddr/device.h>
 #include <wddr/driver.h>
+#include <wddr/table.h>
 #include <wddr/memory_map.h>
 #include <wddr/irq_map.h>
-#include <channel/device.h>
-#include <cmn/device.h>
-#include <ctrl/device.h>
 #include <dfi/buffer.h>
-#include <dram/device.h>
-#include <fsw/device.h>
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
 packet_item_t packets[56] __attribute__ ((section (".data"))) = {0};
+static struct wddr_device_t wddr_instance __attribute__ ((section (".data"))) = {0};
+
+// Static WDDR Table declaration
+static DECLARE_WDDR_TABLE(table);
+
+// Flag to indicate if WDDR handle is in use
+static bool wddr_handle_taken = false;
+
+// Common Rx Buffer for validating receive data
+static dfi_rx_packet_buffer_t rx_buffer;
+
+// IG FIFO state
+static bool ig_fifo_loaded = false;
 
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
 /** @brief  Internal Function to enable all PHY LPDEs and Phase Interpolators */
-static void wddr_enable(wddr_dev_t *wddr);
+static void wddr_enable(wddr_handle_t wddr);
 
 /** @brief  Internal Function to flush DFI interfaces using DFI Buffer */
 static void wddr_dfi_buffer_flush(dfi_dev_t *dfi);
@@ -47,50 +56,55 @@ static void wddr_dfi_buffer_flush(dfi_dev_t *dfi);
 static void wddr_dfi_buffer_prime(dfi_dev_t *dfi);
 
 /** @brief  Internal Function to prepare MRW updates for frequency switch */
-static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
-                                             dfi_dev_t *dfi,
+static void wddr_prep_freq_switch_mrw_update(wddr_handle_t wddr,
                                              dram_freq_cfg_t *dram_cfg);
 
 /** @brief  Internal Function to clear FIFO for all channels */
-static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr);
+static void wddr_clear_fifo_all_channels(wddr_handle_t wddr);
 
 /** @brief  Internal Function for preparing WDDR PHY for frequency switch */
-static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr);
+static void wddr_configure_phy(wddr_handle_t wddr, uint8_t freq_id, wddr_msr_t msr);
 
-/** @brief  Internal weak declaration of WDDR Training Function */
-__attribute__(( weak ))
-wddr_return_t wddr_train(wddr_dev_t *wddr);
+/** @brief   Internal Function to enable loopback mode */
+void wddr_enable_loopback(wddr_handle_t wddr);
+
+/** @brief  Default WDDR Training Function */
+wddr_return_t wddr_train(wddr_handle_t wddr);
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
-
-void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
+__attribute__(( weak ))
+wddr_handle_t wddr_init(uint32_t base)
 {
+    if (wddr_handle_taken)
+    {
+        return NULL;
+    }
+
     // Early init to get MCU to clk speed
-    fsw_init(&wddr->fsw, base);
-    cmn_init(&wddr->cmn, base);
-    ctrl_init(&wddr->ctrl, base);
-    pll_init(&wddr->pll, WDDR_MEMORY_MAP_PLL);
+    fsw_init(&wddr_instance.fsw, base);
+    cmn_init(&wddr_instance.cmn, base);
+    ctrl_init(&wddr_instance.ctrl, base);
+    pll_init(&wddr_instance.pll, WDDR_MEMORY_MAP_PLL);
 
     // Enable Common Block
-    cmn_enable(&wddr->cmn);
+    cmn_enable(&wddr_instance.cmn);
 
     // Boot PLL to set MCU clk @ 384 MHz
-    pll_boot(&wddr->pll);
+    pll_boot(&wddr_instance.pll);
 
     // Enable Clocks
-    ctrl_clk_set_pll_clk_en_reg_if(wddr->ctrl.ctrl_reg, true);
-    ctrl_clk_set_mcu_gfm_sel_reg_if(wddr->ctrl.ctrl_reg, CLK_MCU_GFM_SEL_PLL_VCO0);
-    cmn_clk_ctrl_set_pll0_div_clk_rst_reg_if(wddr->cmn.cmn_reg, false);
-    cmn_clk_ctrl_set_gfcm_en_reg_if(wddr->cmn.cmn_reg, true);
+    ctrl_clk_set_pll_clk_en_reg_if(wddr_instance.ctrl.ctrl_reg, true);
+    ctrl_clk_set_mcu_gfm_sel_reg_if(wddr_instance.ctrl.ctrl_reg, CLK_MCU_GFM_SEL_PLL_VCO0);
+    cmn_clk_ctrl_set_pll0_div_clk_rst_reg_if(wddr_instance.cmn.cmn_reg, false);
+    cmn_clk_ctrl_set_gfcm_en_reg_if(wddr_instance.cmn.cmn_reg, true);
 
     // Turn off PHY CLK gating
-    fsw_csp_set_clk_disable_over_val_reg_if(wddr->fsw.fsw_reg, false);
-    cmn_clk_ctrl_set_pll0_div_clk_en_reg_if(wddr->cmn.cmn_reg, true);
+    fsw_csp_set_clk_disable_over_val_reg_if(wddr_instance.fsw.fsw_reg, false);
+    cmn_clk_ctrl_set_pll0_div_clk_en_reg_if(wddr_instance.cmn.cmn_reg, true);
 
     // Initialize entire WDDR device
-    wddr->is_booted = false;
-    wddr->table = table;
+    wddr_instance.table = &table;
 
     // Channel Configuration
     for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
@@ -100,20 +114,21 @@ void wddr_init(wddr_dev_t *wddr, uint32_t base, wddr_table_t *table)
                                 WDDR_MEMORY_MAP_PHY_CH_START +
                                 WDDR_MEMORY_MAP_PHY_CH_OFFSET * channel;
 
-        channel_init(&wddr->channel[channel], channel_base);
+        channel_init(&wddr_instance.channel[channel], channel_base);
     }
 
     // DFI
-    dfi_init(&wddr->dfi, base);
+    dfi_init(&wddr_instance.dfi, base);
 
     // DRAM
-    dram_init(&wddr->dram,
-              &wddr->table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram);
+    dram_init(&wddr_instance.dram,
+              &wddr_instance.table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram);
 
-
+    return &wddr_instance;
 }
 
-wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
+__attribute__(( weak ))
+wddr_return_t wddr_boot(wddr_handle_t wddr, wddr_boot_cfg_t cfg)
 {
     uint8_t current_vco_id;
 
@@ -246,16 +261,20 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
     wddr_set_dram_resetn_pin_reg_if(wddr, false, false);
 
     fsw_switch_to_dfi_mode(&wddr->fsw, &wddr->dfi);
-    wddr->is_booted = true;
+
+    // Turn on PLL Loss Lock interrupt
+    pll_set_loss_lock_interrupt_state(&wddr->pll, true);
+
     return WDDR_SUCCESS;
 }
 
-wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+__attribute__(( weak ))
+wddr_return_t wddr_prep_switch(wddr_handle_t wddr, uint8_t freq_id, wddr_msr_t msr)
 {
     if (freq_id >= WDDR_PHY_FREQ_NUM ||
         !wddr->table->valid[freq_id])
     {
-        return WDDR_ERROR;
+        return WDDR_ERROR_NOT_VALID_FREQ;
     }
 
     // Configure PHY
@@ -263,7 +282,6 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr
 
     // Prepare MRW sequence in DFI Buffer
     wddr_prep_freq_switch_mrw_update(wddr,
-                                     &wddr->dfi,
                                      &wddr->table->cfg.freq[freq_id].dram);
 
     // Prepare PLL
@@ -271,10 +289,15 @@ wddr_return_t wddr_prep_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr
                            freq_id,
                            &wddr->table->cfg.freq[freq_id].pll);
 
+    // Indicate Prep is done
+    fsw_ctrl_set_prep_done_reg_if(wddr->fsw.fsw_reg, true);
+    fsw_ctrl_set_post_work_done_reg_if(wddr->fsw.fsw_reg, false, 0x0);
+
     return WDDR_SUCCESS;
 }
 
-void wddr_iocal_update_phy(wddr_dev_t *wddr)
+__attribute__(( weak ))
+void wddr_iocal_update_phy(wddr_handle_t wddr)
 {
     uint8_t freq_id;
 
@@ -307,24 +330,128 @@ void wddr_iocal_update_phy(wddr_dev_t *wddr)
     }
 }
 
-void wddr_iocal_calibrate(wddr_dev_t *wddr)
+__attribute__(( weak ))
+void wddr_phyupd_enter(wddr_handle_t wddr, dfi_phyupd_type_t type)
 {
-    __UNUSED__ wddr_return_t ret;
-    ret = cmn_zqcal_calibrate(&wddr->cmn, &wddr->table->cfg.common.common.zqcal);
-    configASSERT(ret == WDDR_SUCCESS);
+    // Request PHYUPDATE
+    dfi_phyupd_req_assert_reg_if(wddr->dfi.dfi_reg, type);
 }
 
-wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+__attribute__(( weak ))
+void wddr_phyupd_exit(wddr_handle_t wddr)
+{
+    // Deassert PHYUPDATE Request
+    dfi_phyupd_req_deassert_reg_if(wddr->dfi.dfi_reg);
+}
+
+__attribute__(( weak ))
+void wddr_ctrlupd_done(wddr_handle_t wddr)
+{
+    // Done with update; deassert acknowledge
+    dfi_ctrlupd_deassert_ack_reg_if(wddr->dfi.dfi_reg);
+}
+
+__attribute__(( weak ))
+void wddr_disable_ctrlupd_interface(wddr_handle_t wddr)
+{
+    // Disable CTRLUPD interface
+    dfi_ctrlupd_ack_override_reg_if(wddr->dfi.dfi_reg, true, 0);
+}
+
+__attribute__(( weak ))
+void wddr_phymstr_enter(wddr_handle_t wddr, dfi_phymstr_req_t *req)
+{
+    dfi_phymstr_req_assert_reg_if(wddr->dfi.dfi_reg, req);
+}
+
+__attribute__(( weak ))
+void wddr_phymstr_exit(wddr_handle_t wddr)
+{
+    dfi_phymstr_req_deassert_reg_if(wddr->dfi.dfi_reg);
+}
+
+__attribute__(( weak ))
+uint8_t wddr_get_current_msr(wddr_handle_t wddr)
+{
+    return fsw_get_current_msr(&wddr->fsw);
+}
+
+__attribute__(( weak ))
+uint8_t wddr_get_next_msr(wddr_handle_t wddr)
+{
+    return fsw_get_next_msr(&wddr->fsw);
+}
+
+__attribute__(( weak ))
+void wddr_handle_pending_switch(wddr_handle_t wddr)
+{
+    uint8_t init_start, init_complete;
+
+    // Wait for INIT_START to go low
+    do
+    {
+        init_start = dfi_get_init_start_status_reg_if(wddr->dfi.dfi_reg);
+    } while (init_start != 0x0);
+
+    // Override Init Complete and force low to Complete MRW
+    dfi_set_init_complete_ovr_reg_if(wddr->dfi.dfi_reg, true, 0x1);
+
+    // Wait for PHY to deassert INIT_COMPLETE
+    do
+    {
+        init_complete = dfi_get_init_complete_status_reg_if(wddr->dfi.dfi_reg);
+    } while (init_complete != 0x1);
+
+    // Set Post Work Done Override
+    fsw_ctrl_set_post_work_done_reg_if(wddr->fsw.fsw_reg, true, 0x0);
+
+    // Send MRW from DFI Buffer (This was filled during prep)
+    dfi_buffer_send_packets(&wddr->dfi);
+
+    // Must disable buffer when done
+    dfi_buffer_disable(&wddr->dfi);
+
+    // Release Init Complete Override
+    dfi_set_init_complete_ovr_reg_if(wddr->dfi.dfi_reg, false, 0x1);
+
+    // Allow PLL lock interrupt
+    pll_set_lock_interrupt_state(&wddr->pll, true);
+}
+
+__attribute__(( weak ))
+void wddr_handle_post_switch(wddr_handle_t wddr)
+{
+    // Indicate to PLL that switch occurred; disable previous vco
+    pll_switch_vco(&wddr->pll, false);
+    pll_disable_vco(&wddr->pll);
+
+    // Turn off pll interrupt
+    pll_set_lock_interrupt_state(&wddr->pll, false);
+
+    // Indicate Post Work Done
+    fsw_ctrl_set_post_work_done_reg_if(wddr->fsw.fsw_reg, false, 0x1);
+
+    // Put back in default state
+    fsw_ctrl_set_post_work_done_reg_if(wddr->fsw.fsw_reg, false, 0x0);
+    fsw_ctrl_set_prep_done_reg_if(wddr->fsw.fsw_reg, false);
+    fsw_ctrl_set_msr_toggle_en_reg_if(wddr->fsw.fsw_reg, 0x1);
+    fsw_ctrl_set_vco_toggle_en_reg_if(wddr->fsw.fsw_reg, 0x1);
+}
+
+wddr_return_t wddr_iocal_calibrate(wddr_handle_t wddr)
+{
+    wddr_return_t ret;
+    ret = cmn_zqcal_calibrate(&wddr->cmn, &wddr->table->cfg.common.common.zqcal);
+    configASSERT(ret == WDDR_SUCCESS);
+    return ret;
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_sw_freq_switch(wddr_handle_t wddr, uint8_t freq_id, wddr_msr_t msr)
 {
     uint32_t reg_val;
     uint8_t next_vco;
     pll_dev_t *pll = &wddr->pll;
-
-    // Can only call if wddr hasn't booted
-    if (wddr->is_booted)
-    {
-        return WDDR_ERROR;
-    }
 
     // Don't toggle MSR
     fsw_ctrl_set_msr_toggle_en_reg_if(wddr->fsw.fsw_reg, false);
@@ -358,7 +485,87 @@ wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t 
     return WDDR_SUCCESS;
 }
 
-static void wddr_enable(wddr_dev_t *wddr)
+__attribute__(( weak ))
+void wddr_gate_external_interfaces(wddr_handle_t wddr, bool should_gate)
+{
+    // Disable rddata_valid propagation to MC
+    dfi_fifo_rdout_en_ovr_reg_if(wddr->dfi.dfich_reg, should_gate, false);
+
+    // keep DRAM in RESET
+    wddr_set_dram_resetn_pin_reg_if(wddr, should_gate, false);
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
+{
+    dfi_return_t ret;
+    ret = dfi_buffer_fill_packets(&wddr->dfi, packets);
+    switch(ret)
+    {
+        case DFI_ERROR_FIFO_FULL:
+            return WDDR_ERROR_FIFO_FULL;
+        case DFI_ERROR:
+            return WDDR_ERROR;
+        default:
+            ig_fifo_loaded = true;
+            return WDDR_SUCCESS;
+    }
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
+{
+    wddr_return_t ret;
+    if (!ig_fifo_loaded)
+    {
+        ret = wddr_load_packets(wddr, packets);
+        if (ret != WDDR_SUCCESS)
+        {
+            return ret;
+        }
+    }
+
+    dfi_buffer_send_packets(&wddr->dfi);
+    ig_fifo_loaded = false;
+    return WDDR_SUCCESS;
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_validate_recv_data(wddr_handle_t wddr,
+                                      const command_data_t *data,
+                                      burst_length_t bl,
+                                      bool *valid)
+{
+    uint8_t tmp, freq_id, ratio;
+    uint8_t byte = WDDR_DQ_BYTE_0;
+
+    // Initialize
+    pll_get_current_freq(&wddr->pll, &freq_id);
+    ratio = wddr->table->cfg.freq[freq_id].dram.ratio;
+
+    uint8_t num_packets = bl >> ratio >> 1;
+    if (dfi_buffer_read_packets(&wddr->dfi, &rx_buffer, num_packets) == DFI_ERROR_FIFO_EMPTY)
+    {
+        return WDDR_ERROR_FIFO_EMPTY;
+    }
+
+    // Validate all bytes
+    do
+    {
+        dfi_rx_packet_buffer_data_compare(&rx_buffer,
+                                          data,
+                                          byte,
+                                          PACKET_DATA_MASK_BOTH,
+                                          num_packets,
+                                          2 << ratio,
+                                          &tmp);
+    } while (tmp == true && byte < WDDR_PHY_DQ_BYTE_NUM);
+
+    *valid = (bool) tmp;
+    return WDDR_SUCCESS;
+}
+
+static void wddr_enable(wddr_handle_t wddr)
 {
     for (uint8_t channel = WDDR_CHANNEL_0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
     {
@@ -435,8 +642,7 @@ static void wddr_dfi_buffer_prime(dfi_dev_t *dfi)
     dfi_buffer_disable(dfi);
 }
 
-static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
-                                             dfi_dev_t *dfi,
+static void wddr_prep_freq_switch_mrw_update(wddr_handle_t wddr,
                                              dram_freq_cfg_t *dram_cfg)
 {
     dfi_tx_packet_buffer_t packet_buffer;
@@ -464,7 +670,7 @@ static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
     dram_prepare_mrw_update(&wddr->dram, &packet_buffer, dram_cfg);
 
     // Prefill packets
-    dfi_buffer_fill_packets(dfi, &packet_buffer.list);
+    dfi_buffer_fill_packets(&wddr->dfi, &packet_buffer.list);
 
     /**
      * @note: No need to call dfi_tx_packet_buffer_free since packet_buffer
@@ -472,7 +678,7 @@ static void wddr_prep_freq_switch_mrw_update(wddr_dev_t *wddr,
      */
 }
 
-static void wddr_clear_fifo_all_channels(wddr_dev_t *wddr)
+static void wddr_clear_fifo_all_channels(wddr_handle_t wddr)
 {
     for (uint8_t channel = WDDR_CHANNEL_0; channel <= WDDR_CHANNEL_1; channel++)
     {
@@ -506,8 +712,11 @@ static void dq_enable_loopback(channel_dev_t *dev, wddr_msr_t msr, wddr_dq_byte_
     }
 }
 
-void wddr_enable_loopback(wddr_dev_t *wddr)
+__attribute__ (( weak ))
+void wddr_enable_loopback(wddr_handle_t wddr)
 {
+    uint32_t reg_val;
+
     driver_cfg_t cfg =
     {
         .override.sel = 0x3,
@@ -519,10 +728,29 @@ void wddr_enable_loopback(wddr_dev_t *wddr)
 
     wddr_msr_t msr = fsw_get_current_msr(&wddr->fsw);
 
+    // Disable Channel 1 DQ bytes
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_TOP_CFG_TRAINING_MODE, 0x1);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ0 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+    reg_write(WDDR_MEMORY_MAP_CH1_DQ1 +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+    // Disable Channel 1 CA byte
+    reg_val = reg_read(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_CA_TOP_CFG_TRAINING_MODE, 0x1);
+    reg_write(WDDR_MEMORY_MAP_CH1_CA +  DDR_DQ_TOP_CFG__ADR, reg_val);
+
+    // Disable DQ2 / DQ3 valid signals
+    reg_val = reg_read(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR);
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_DQBYTE_RDVALID_MASK, 0xC);
+    reg_write(WDDR_MEMORY_MAP_DFI_CH0 + DDR_DFICH_TOP_1_CFG__ADR, reg_val);
+
     // Turn on DFI Loopback (CH0)
     dfi_set_ca_loopback_sel_reg_if(wddr->dfi.dfi_reg, 0x0);
 
     dfi_fifo_enable_ca_rdata_loopback_reg_if(wddr->dfi.dfich_reg, true);
+
+    // Disable buffer hold feature in loopback mode
+    dfi_fifo_set_wdata_hold_reg_if(wddr->dfi.dfich_reg, false);
 
     for (uint8_t channel = 0; channel < WDDR_PHY_CHANNEL_NUM; channel++)
     {
@@ -1317,7 +1545,7 @@ static inline void dfi_freq_switch_prep(dfi_dev_t *dfi, wddr_msr_t msr, dfi_freq
  * This preps PHY only. Another call to the Frequency Switch FSM must be made to
  * prep PLL and pefrom the switch (if desired).
  */
-static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
+static void wddr_configure_phy(wddr_handle_t wddr, uint8_t freq_id, wddr_msr_t msr)
 {
     channel_dev_t *channel_dev;
 
@@ -1349,7 +1577,8 @@ static void wddr_configure_phy(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr
     dfi_freq_switch_prep(&wddr->dfi, msr, &wddr->table->cfg.freq[freq_id].dfi);
 }
 
-wddr_return_t wddr_train(wddr_dev_t *wddr)
+__attribute__(( weak ))
+wddr_return_t wddr_train(wddr_handle_t wddr)
 {
     // This must be implemented in an external function.
     return WDDR_SUCCESS;

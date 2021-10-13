@@ -277,14 +277,12 @@ void create_refresh_all_banks_command(command_t *command, chipselect_t cs);
  * @param[in]   len         length of data to copy.
  * @param[in]   offset      offset from source data to start copy.
  *
- * @return      returns whether data was filled in.
- * @retval      WDDR_SUCCESS if successfully filled in.
- * @retval      WDDR_ERROR otherwise.
+ * @return      void.
  */
-wddr_return_t create_data_frame(command_data_t *data,
-                                wddr_dq_byte_t dq_byte,
-                                void *src,
-                                size_t len,
-                                uint8_t offset);
+void create_data_frame(command_data_t *data,
+                       wddr_dq_byte_t dq_byte,
+                       void *src,
+                       size_t len,
+                       uint8_t offset);
 
 #endif /* _DFI_COMMAND_H_ */

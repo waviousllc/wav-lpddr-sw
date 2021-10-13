@@ -16,6 +16,20 @@
 #define UNDEFINED_VCO_ID    (255)
 
 /**
+ * @brief   PLL Return Types
+ *
+ * SUCCESS      Successful return value.
+ * ERROR        Error return value.
+ * NOT_PREPPED  Error return value to indicate PLL not prepped for switch.
+ */
+typedef enum pll_return_t
+{
+    PLL_SUCCESS,
+    PLL_ERROR,
+    PLL_NOT_PREPPED,
+} pll_return_t;
+
+/**
  * @brief   PLL Device Structure
  *
  * @details PLL device structure that tracks current PLL state and Frequency.
@@ -99,10 +113,10 @@ void pll_prepare_vco_switch(pll_dev_t *pll,
  *                              performed.
  *
  * @return      returns whether PLL was switched to the new VCO.
- * @return      WDDR_SUCCESS if switched.
- * @return      WDDR_ERROR if VCO hasn't been prepared.
+ * @return      PLL_SUCCESS if switched.
+ * @return      PLL_NOT_PREPPED if VCO hasn't been prepared.
  */
-wddr_return_t pll_switch_vco(pll_dev_t *pll, bool is_sw_switch);
+pll_return_t pll_switch_vco(pll_dev_t *pll, bool is_sw_switch);
 
 /**
  * @brief   Phase Lock Loop (PLL) Disable VCO
