@@ -1,5 +1,9 @@
 # Setup Toplevel directory
 set(WAV_WDDR_TOP_LEVEL ${CMAKE_CURRENT_LIST_DIR})
+set(WAV_WDDR_TARGET_PHY_DIR ${CMAKE_CURRENT_LIST_DIR}/target/${CONFIG_TARGET_PHY})
+
+# Include Target PHY to setup output directory
+include(${WAV_WDDR_TARGET_PHY_DIR}/CMake.in)
 
 set(RTOS_HEAP_ALLOC_SCHEME "4")
 include(${WAV_WDDR_TOP_LEVEL}/rtos/CMake.in)
