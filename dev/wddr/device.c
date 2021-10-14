@@ -117,6 +117,9 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
 {
     uint8_t current_vco_id;
 
+    // Force DRAM RESETN pin low
+    wddr_set_dram_resetn_pin_reg_if(wddr, true, false);
+
     // Calibrate all frequencies
     if (GET_BOOT_OPTION(cfg, WDDR_BOOT_OPTION_PLL_CAL))
     {
@@ -238,6 +241,9 @@ wddr_return_t wddr_boot(wddr_dev_t *wddr, wddr_boot_cfg_t cfg)
         wddr_sw_freq_switch(wddr, WDDR_PHY_BOOT_FREQ, WDDR_MSR_0);
         pll_get_current_vco(&wddr->pll, &current_vco_id);
     }
+
+    // Remove DRAM RESETN pin override (MC should control)
+    wddr_set_dram_resetn_pin_reg_if(wddr, false, false);
 
     fsw_switch_to_dfi_mode(&wddr->fsw, &wddr->dfi);
     wddr->is_booted = true;
