@@ -430,19 +430,18 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets);
  *
  * @details Validates that data received matches expected values.
  *
- * @param[in]   wddr    WDDR device handle.
- * @param[in]   data    data that is expected to be received.
- * @param[in]   bl      Burst length of data expected to recieve.
- * @param[out]  valid   pointer to store if data was validated.
+ * @param[in]   wddr            WDDR device handle.
+ * @param[in]   data            data that is expected to be received.
+ * @param[in]   bl              Burst length of data expected to recieve.
+ * @param[in]   dq_byte_mask    mask to indicate which DQ bytes to validate.
  *
- * @return      returns whether data was validated successfully.
- * @retval      WDDR_SUCCESS if successful.
- * @retval      WDDR_ERROR_FIFO_EMPTY if FIFO is empty.
- * @retval      WDDR_ERROR otherwise.
+ * @return      returns whether received data was valid.
+ * @retval      true if received data matches expected data.
+ * @retval      false otherwise.
  */
-wddr_return_t wddr_validate_recv_data(wddr_handle_t wddr,
-                                      const command_data_t *data,
-                                      burst_length_t bl,
-                                      bool *valid);
+bool wddr_validate_recv_data(wddr_handle_t wddr,
+                             const command_data_t *data,
+                             burst_length_t bl,
+                             uint8_t dq_byte_mask);
 
 #endif /* _WDDR_INTERFACE_H_ */

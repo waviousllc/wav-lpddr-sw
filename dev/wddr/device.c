@@ -32,9 +32,6 @@ static DECLARE_WDDR_TABLE(table);
 // Flag to indicate if WDDR handle is in use
 static bool wddr_handle_taken = false;
 
-// Common Rx Buffer for validating receive data
-static dfi_rx_packet_buffer_t rx_buffer;
-
 // IG FIFO state
 static bool ig_fifo_loaded = false;
 
@@ -531,38 +528,60 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
 }
 
 __attribute__(( weak ))
-wddr_return_t wddr_validate_recv_data(wddr_handle_t wddr,
-                                      const command_data_t *data,
-                                      burst_length_t bl,
-                                      bool *valid)
+bool wddr_validate_recv_data(wddr_handle_t wddr,
+                             const command_data_t *data,
+                             burst_length_t bl,
+                             uint8_t dq_byte_mask)
 {
-    uint8_t tmp, freq_id, ratio;
-    uint8_t byte = WDDR_DQ_BYTE_0;
+    uint8_t packet_data[PACKET_MAX_NUM_PHASES];
+    dfi_rx_packet_t packet;
+    uint8_t byte_data_idx[WDDR_DQ_BYTE_TOTAL] = {0};
+    uint8_t remaining_byte_mask = dq_byte_mask & ((1 << WDDR_DQ_BYTE_TOTAL) - 1);
+    uint8_t phases = 2 << wddr->dram.cfg->ratio;
+    uint8_t num_packets = bl >> wddr->dram.cfg->ratio >> 1;
 
-    // Initialize
-    pll_get_current_freq(&wddr->pll, &freq_id);
-    ratio = wddr->table->cfg.freq[freq_id].dram.ratio;
-
-    uint8_t num_packets = bl >> ratio >> 1;
-    if (dfi_buffer_read_packets(&wddr->dfi, &rx_buffer, num_packets) == DFI_ERROR_FIFO_EMPTY)
-    {
-        return WDDR_ERROR_FIFO_EMPTY;
-    }
-
-    // Validate all bytes
+    // NOTE: Not validating that data is consecutive, but it should be
     do
     {
-        dfi_rx_packet_buffer_data_compare(&rx_buffer,
-                                          data,
-                                          byte,
-                                          PACKET_DATA_MASK_BOTH,
-                                          num_packets,
-                                          2 << ratio,
-                                          &tmp);
-    } while (tmp == true && byte < WDDR_PHY_DQ_BYTE_NUM);
+        // Read packet
+        if (dfi_buffer_read_packet(&wddr->dfi, &packet) != DFI_SUCCESS)
+        {
+            return false;
+        }
 
-    *valid = (bool) tmp;
-    return WDDR_SUCCESS;
+        // Compare data for each byte
+        for (uint8_t byte = WDDR_DQ_BYTE_0; byte < WDDR_DQ_BYTE_TOTAL; byte++)
+        {
+            uint8_t byte_mask = 1 << byte;
+            // Don't process if byte_mask isn't set
+            if (!(remaining_byte_mask & byte_mask))
+            {
+                continue;
+            }
+
+            // If not valid, then ignore
+            if (!extract_packet_data(&packet.packet, packet_data, byte, phases))
+            {
+                continue;
+            }
+
+            // Compare data
+            uint8_t idx = byte_data_idx[byte]++;
+            if (!compare_packet_data(packet_data, &data->dq[byte][idx * phases], phases, PACKET_DATA_MASK_BOTH))
+            {
+                return false;
+            }
+
+            // Clear mask to indicate this byte is done
+            if (idx == num_packets - 1)
+            {
+                remaining_byte_mask &= ~byte_mask;
+            }
+        }
+    }
+    while(remaining_byte_mask); // Either no more packets to read or no more bytes to process
+
+    return true;
 }
 
 static void wddr_enable(wddr_handle_t wddr)

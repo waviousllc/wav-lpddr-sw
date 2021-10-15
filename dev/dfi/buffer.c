@@ -88,22 +88,28 @@ static dfi_return_t dfi_buffer_write_packets(dfi_dev_t *dfi,
     return ret;
 }
 
-dfi_return_t dfi_buffer_read_packets(dfi_dev_t *dfi,
-                                      dfi_rx_packet_buffer_t *rx_buffer,
-                                      uint8_t num_packets)
+dfi_return_t dfi_buffer_read_packet(dfi_dev_t *dfi,
+                                    dfi_rx_packet_t *packet)
+{
+    return dfi_fifo_read_eg_reg_if(dfi->dfich_reg, packet->raw_data);
+}
+
+void dfi_buffer_read_all_packets(dfi_dev_t *dfi,
+                                 dfi_rx_packet_buffer_t *rx_buffer,
+                                 uint8_t *num_packets)
 {
     dfi_return_t ret;
     uint8_t nn = 0;
 
-    if (num_packets > DFI_FIFO_DEPTH)
-    {
-        return DFI_ERROR;
-    }
 
+    // Read until empty
     do
     {
-
-        ret = dfi_fifo_read_eg_reg_if(dfi->dfich_reg, rx_buffer->buffer[nn].raw_data);
-    } while(++nn < num_packets && ret == DFI_SUCCESS);
-    return ret;
+        ret = dfi_buffer_read_packet(dfi, &rx_buffer->buffer[nn]);
+        if (ret == DFI_ERROR_FIFO_EMPTY)
+        {
+            break;
+        }
+    } while(++nn < PACKET_BUFFER_DEPTH);
+    *num_packets = nn;
 }

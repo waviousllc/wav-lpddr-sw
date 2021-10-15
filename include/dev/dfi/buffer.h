@@ -81,21 +81,33 @@ dfi_return_t dfi_buffer_fill_and_send_packets(dfi_dev_t *dfi,
                                               const List_t *packet_list);
 
 /**
- * @brief   DFI Buffer Read Packets
+ * @brief   DFI Buffer Read Packet
  *
- * @details Read given number of packets from the EG FIFO.
+ * @details Reads a single packet from the EG FIFO.
  *
- * @param[in]       dfi             pointer to DFI device.
- * @param[out]      rx_buffer       pointer to the RX Packet buffer to read into.
- * @param[inout]    num_packets     number of packets to read / were read.
+ * @param[in]   dfi     pointer to DFI device.
+ * @param[out]  packet  pointer to packet to fill in.
  *
- * @return          returns if requested number of packets were read.
- * @retval          DFI_SUCCESS if number of packets requested were read.
- * @retval          DFI_ERROR_FIFO_EMPTY if EG FIFO is empty before
- *                  number of requested packets have been read.
+ * @return      returns if packet was read.
+ * @retval      DFI_SUCCESS if packet was read.
+ * @retval      DFI_ERROR_FIFO_EMPTY if EG FIFO is empty.
  */
-dfi_return_t dfi_buffer_read_packets(dfi_dev_t *dfi,
-                                      dfi_rx_packet_buffer_t *rx_buffer,
-                                      uint8_t num_packets);
+dfi_return_t dfi_buffer_read_packet(dfi_dev_t *dfi,
+                                    dfi_rx_packet_t *packet);
+
+/**
+ * @brief   DFI Buffer Read All Packets
+ *
+ * @details Reads all packets that are in the EG FIFO.
+ *
+ * @param[in]   dfi             pointer to DFI device.
+ * @param[out]  rx_buffer       pointer to the RX Packet buffer to read into.
+ * @param[out]  num_packets     number of packets that were read.
+ *
+ * @return      void.
+ */
+void dfi_buffer_read_all_packets(dfi_dev_t *dfi,
+                                 dfi_rx_packet_buffer_t *rx_buffer,
+                                 uint8_t *num_packets);
 
 #endif /* _DFI_BUFFER_DEV_H_ */
