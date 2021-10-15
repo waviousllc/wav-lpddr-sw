@@ -19,18 +19,6 @@ static uint32_t determine_group_mask(packet_group_info_t *group_info,
                                      uint8_t cycles_per_packet,
                                      uint8_t phases_per_cycle_shft);
 
-/** @brief  Internal Function for extracting data from a packet and storing in a data buffer */
-static void extract_packet_data(const dfi_rx_packet_desc_t *packet,
-                                uint8_t data_packet[PACKET_MAX_NUM_PHASES],
-                                wddr_dq_byte_t dq_byte,
-                                uint8_t phases);
-
-/** @brief  Internal Function to compare received data versus expected data */
-static bool compare_received_data(const uint8_t received[PACKET_MAX_NUM_PHASES],
-                                  const uint8_t *expected,
-                                  uint8_t phases,
-                                  packet_data_mask_t data_mask);
-
 void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer)
 {
     vListInitialise(&buffer->list);
@@ -324,31 +312,6 @@ void fill_rddata_packet(packet_item_t *packet,
 #endif
 }
 
-void dfi_rx_packet_buffer_data_compare(const dfi_rx_packet_buffer_t *buffer,
-                                       const command_data_t *expected,
-                                       wddr_dq_byte_t dq_byte,
-                                       packet_data_mask_t data_mask,
-                                       uint8_t num,
-                                       uint8_t phases,
-                                       uint8_t *is_same)
-{
-    const dfi_rx_packet_desc_t *packet;
-    bool same = false;
-    uint8_t data_packet[PACKET_MAX_NUM_PHASES];
-
-    for (uint8_t ii = 0; ii < num; ii++)
-    {
-        packet = &buffer->buffer[ii].packet;
-        extract_packet_data(packet, data_packet, dq_byte, phases);
-        same = compare_received_data(data_packet, &expected->dq[dq_byte][ii * phases], phases, data_mask);
-        if (!same)
-        {
-            break;
-        }
-    }
-    *is_same = same;
-}
-
 static void create_packet(dfi_tx_packet_buffer_t *buffer, packet_item_t **packet)
 {
     packet_item_t *new_packet = NULL;
@@ -380,11 +343,19 @@ static void create_packet(dfi_tx_packet_buffer_t *buffer, packet_item_t **packet
 }
 
 // TODO: Need to support 8 phases
-static void extract_packet_data(const dfi_rx_packet_desc_t *packet,
-                                uint8_t data_packet[PACKET_MAX_NUM_PHASES],
-                                wddr_dq_byte_t dq_byte,
-                                uint8_t phases)
+bool extract_packet_data(const dfi_rx_packet_desc_t *packet,
+                         uint8_t data_packet[PACKET_MAX_NUM_PHASES],
+                         wddr_dq_byte_t dq_byte,
+                         uint8_t phases)
 {
+    // Assume that read data comes in all aligned (which it does)
+    uint8_t valid = (dq_byte == WDDR_DQ_BYTE_0) ? packet->dq0_dfi_rddata_valid_w0 : packet->dq1_dfi_rddata_valid_w0;
+
+    if (!valid)
+    {
+        return false;
+    }
+
     data_packet[0] = (dq_byte == WDDR_DQ_BYTE_0) ? packet->dq0_dfi_rddata_w0 : packet->dq1_dfi_rddata_w0;
     data_packet[1] = (dq_byte == WDDR_DQ_BYTE_0) ? packet->dq0_dfi_rddata_w1 : packet->dq1_dfi_rddata_w1;
 
@@ -393,20 +364,22 @@ static void extract_packet_data(const dfi_rx_packet_desc_t *packet,
         data_packet[2] = (dq_byte == WDDR_DQ_BYTE_0) ? packet->dq0_dfi_rddata_w2 : packet->dq1_dfi_rddata_w2;
         data_packet[3] = (dq_byte == WDDR_DQ_BYTE_0) ? packet->dq0_dfi_rddata_w3 : packet->dq1_dfi_rddata_w3;
     }
+
+    return true;
 }
 
-static bool compare_received_data(const uint8_t received[PACKET_MAX_NUM_PHASES],
-                                  const uint8_t *expected,
-                                  uint8_t phases,
-                                  packet_data_mask_t data_mask)
+bool compare_packet_data(const uint8_t *ptr1,
+                         const uint8_t *ptr2,
+                         uint8_t phases,
+                         packet_data_mask_t mask)
 {
-    uint8_t step_size = data_mask == PACKET_DATA_MASK_BOTH ? 1 : 2;
-    uint8_t i = data_mask & PACKET_DATA_MASK_EVEN ? 0 : 1;
+    uint8_t step_size = mask == PACKET_DATA_MASK_BOTH ? 1 : 2;
+    uint8_t i = mask & PACKET_DATA_MASK_EVEN ? 0 : 1;
 
     // compare all phases
     for (; i < phases; i += step_size)
     {
-        if (expected[i] != received[i])
+        if (ptr1[i] != ptr2[i])
         {
             return false;
         }

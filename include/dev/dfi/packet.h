@@ -513,28 +513,47 @@ void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer);
 void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer);
 
 /**
- * @brief   DFI RX Packet Buffer Data Comparison
+ * @brief   Extract Packet Data
  *
- * @details Compares given data to data read via received DFI Packets.
+ * @details Extracts data that is in the given packet and writes it into the
+ *          provided buffer.
  *
- * @param[in]   buffer      pointer to rx packet buffer.
- * @param[in]   expected    pointer to expected data.
- * @param[in]   dq_byte     which DQ Byte to compare.
- * @param[in]   data_mask   data mask for which phases to compare.
- * @param[in]   num         number of bytes to compare.
- * @param[in]   phases      number of phases of data to processes. This is
- *                          depedent on current DRAM to DFI Freq ratio.
- * @param[out]  is_same     pointer to store if data matches.
+ * @param[in]   packet  pointer to packet to extract data from.
+ * @param[out]  buffer  pointer to buffer to fill in with packet data.
+ * @param[in]   dq_byte which DQ byte to extract.
+ * @param[in]   phases  number of phases valid in the packet (based on ratio).
  *
- * @return      void
+ * @return      returns whether packet data was valid.
+ * @retval      true if data is valid.
+ * @retval      false otherwise.
  */
-void dfi_rx_packet_buffer_data_compare(const dfi_rx_packet_buffer_t *buffer,
-                                       const command_data_t *expected,
-                                       wddr_dq_byte_t dq_byte,
-                                       packet_data_mask_t data_mask,
-                                       uint8_t num,
-                                       uint8_t phases,
-                                       uint8_t *is_same);
+bool extract_packet_data(const dfi_rx_packet_desc_t *packet,
+                         uint8_t data_packet[PACKET_MAX_NUM_PHASES],
+                         wddr_dq_byte_t dq_byte,
+                         uint8_t phases);
+
+/**
+ * @brief   Compare Packet Data
+ *
+ * @details Compares the packet data to the expected data. Data mask indicates
+ *          if odd or even phases or both should be compared. Typically, both
+ *          phases are compared, but in some cases it might be useful to only
+ *          compare even or odds.
+ *
+ * @param[in]   ptr1    pointer to data to compare.
+ * @param[in]   ptr2    pointer to data to compare against.
+ * @param[in]   phases  number of phases per packet. 1 phase = 1 byte of data.
+ * @param[in]   mask    mask to indicate if even, odd, or both phases are
+ *                      compared.
+ *
+ * @return      returns whether packet data matches.
+ * @retval      true if data matches.
+ * @retval      false otherwise.
+ */
+bool compare_packet_data(const uint8_t *ptr1,
+                         const uint8_t *ptr2,
+                         uint8_t phases,
+                         packet_data_mask_t mask);
 
 /**
  * @brief   Create CK Packet Sequence
