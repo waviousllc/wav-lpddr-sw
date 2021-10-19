@@ -316,7 +316,6 @@ void wddr_iocal_calibrate(wddr_dev_t *wddr)
 
 wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t msr)
 {
-    uint32_t reg_val;
     uint8_t next_vco;
     pll_dev_t *pll = &wddr->pll;
 
@@ -344,10 +343,7 @@ wddr_return_t wddr_sw_freq_switch(wddr_dev_t *wddr, uint8_t freq_id, wddr_msr_t 
     pll_switch_vco(pll, true);
 
     // Block until PLL is ready
-    do
-    {
-        reg_val = reg_read(pll->base + DDR_MVP_PLL_CORE_STATUS__ADR);
-    } while (!GET_REG_FIELD(reg_val, DDR_MVP_PLL_CORE_STATUS_CORE_READY));
+    pll_wait_until_core_ready_reg_if(pll->pll_reg);
 
     // Put back to normal state
     fsw_ctrl_set_msr_toggle_en_reg_if(wddr->fsw.fsw_reg, true);

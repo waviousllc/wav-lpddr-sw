@@ -9,11 +9,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <error.h>
-#include <vco/device.h>
 #include <pll/table.h>
+#include <pll/driver.h>
 
 #define UNDEFINED_FREQ_ID   (255)
 #define UNDEFINED_VCO_ID    (255)
+
+/**
+ * @brief   VCO Device Structure
+ *
+ * @details Structure used to store state of VCO device.
+ *
+ * id       id of the VCO.
+ * freq     current frequency that VCO is configured to output.
+ */
+typedef struct vco_dev
+{
+    uint8_t id;
+    uint8_t freq;
+} vco_dev_t;
 
 /**
  * @brief   PLL Device Structure
@@ -25,7 +39,7 @@
  *          next which is used to prepare frequency change to a new
  *          PHY frequency.
  *
- * base             base address of the PLL device.
+ * pll_reg          pointer to PLL register space.
  * vco              Array of available VCO devices.
  * p_vco_current    pointer to current VCO device driving PLL.
  * p_vco_next       pointer to the next VCO device. Usually NULL unless prepared
@@ -35,7 +49,7 @@
  */
 typedef struct pll_dev_t
 {
-    uint32_t    base;
+    pll_reg_t   *pll_reg;
     vco_dev_t   vco[VCO_INDEX_NUM];
     vco_dev_t   *p_vco_current;
     vco_dev_t   *p_vco_next;
@@ -48,7 +62,7 @@ typedef struct pll_dev_t
  * @details Initializes PLL device at device level.
  *
  * @param[in]   pll     pointer to PLL device.
- * @param[in]   base    base address of PLL device.
+ * @param[in]   base    base address of pll register space.
  *
  * @return      void
  */
