@@ -31,12 +31,12 @@ static bool wddr_messenger_validate(void *dev, void *buff, size_t len);
 void wddr_messenger_init(wddr_message_interface_t *messenger)
 {
     xMessengerInterfaceRegisterPhyInterface((void *) messenger,
-                                            MEMORY_MAP_WAV_MCU_INTF,
+                                            WDDR_MEMORY_MAP_MCU_INTF,
                                             messenger_send_reg_if,
                                             messenger_receive_reg_if,
                                             wddr_messenger_validate);
 
-    messenger_init_reg_if(messenger, MEMORY_MAP_WAV_MCU_INTF, MCU_FAST_IRQ_HOST2PHY_REQ, MCU_FAST_IRQ_PHY2HOST_ACK);
+    messenger_init_reg_if(messenger, WDDR_MEMORY_MAP_MCU_INTF, MCU_FAST_IRQ_HOST2PHY_REQ, MCU_FAST_IRQ_PHY2HOST_ACK);
 }
 
 void wddr_messenger_send(wddr_message_interface_t *messenger, Message_t *message)

@@ -19,7 +19,6 @@
 #include <kernel/stateMachine.h>
 
 /* LPDDR includes. */
-#include <wddr/memory_map.h>
 #include <wddr/irq_map.h>
 #include <wddr/interface.h>
 
@@ -500,7 +499,7 @@ static void dfi_phyupd_timer_callback(TimerHandle_t xTimer)
 static void firmwarePeriodicCalTask(void *pvParameters)
 {
     TickType_t xLastWakeTime;
-    UBaseType_t resp;
+    uint32_t resp;
     const TickType_t xFrequency = PERIODIC_CAL_PERIOD;
     const dfi_phymstr_req_t request = {
         .cs_state = DFI_MASTER_CS_STATE_ACTIVE,

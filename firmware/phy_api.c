@@ -52,7 +52,7 @@ UBaseType_t firmware_phy_prep_switch(uint8_t freq_id)
 
 static UBaseType_t __send_fw_msg(fw_msg_t *msg, TickType_t xTicksToWait, uint8_t ucTryCount)
 {
-    UBaseType_t resp;
+    uint32_t resp;
 
     msg->xSender = xTaskGetCurrentTaskHandle();
 

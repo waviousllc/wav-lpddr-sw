@@ -41,7 +41,6 @@
 #include <messenger/messages_wddr.h>
 
 /* PHY Firmware includes. */
-#include <wddr/memory_map.h>
 #include <wddr/irq_map.h>
 #include <firmware/phy_api.h>
 
@@ -77,29 +76,29 @@ static void vMainTask( void *pvParameters );
 static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *state);
 
 /** @brief  Centralized shutdown function */
-static void shutdown(uint32_t cause);
+static void shutdown(uint16_t cause);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-extern uintptr_t __start;
-img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
-    .image_magic = IMAGE_MAGIC,
-    .image_hdr_version = IMAGE_VERSION_CURRENT,
-    .image_type = IMAGE_TYPE_APP,
-    .version_major = FW_VERSION_MAJOR,
-    .version_minor = FW_VERSION_MINOR,
-    .version_patch = FW_VERSION_PATCH,
-    .vector_size = VECTOR_SIZE,
-    .vector_addr = (uintptr_t) &__start,
-    .device_id = IMAGE_DEVICE_ID_HOST,
-    .git_dirty = GIT_DIRTY,
-    .git_ahead = GIT_AHEAD,
-    .git_sha = GIT_SHA,
-    // populated as part of a post compilation step
-    .crc = 0,
-    .data_size = 0,
-};
+// extern uintptr_t __start;
+// img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
+//     .image_magic = IMAGE_MAGIC,
+//     .image_hdr_version = IMAGE_VERSION_CURRENT,
+//     .image_type = IMAGE_TYPE_APP,
+//     .version_major = FW_VERSION_MAJOR,
+//     .version_minor = FW_VERSION_MINOR,
+//     .version_patch = FW_VERSION_PATCH,
+//     .vector_size = VECTOR_SIZE,
+//     .vector_addr = (uintptr_t) &__start,
+//     .device_id = IMAGE_DEVICE_ID_HOST,
+//     .git_dirty = GIT_DIRTY,
+//     .git_ahead = GIT_AHEAD,
+//     .git_sha = GIT_SHA,
+//     // populated as part of a post compilation step
+//     .crc = 0,
+//     .data_size = 0,
+// };
 
 /*******************************************************************************
 **                              IMPLEMENTATIONS
@@ -244,6 +243,7 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 /*-----------------------------------------------------------*/
 static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *state)
 {
+    uint8_t freq_id;
     Message_t local_resp = {0x0, 0x0};
     UBaseType_t status = pdPASS;
 
@@ -251,7 +251,6 @@ static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *st
     {
         // Prep Request
         case MESSAGE_WDDR_FREQ_PREP_REQ:
-            uint8_t freq_id;
 
             // Extract Frequency ID
             freq_id = GET_REG_FIELD(req->data, WDDR_FREQ_PREP_REQ__FREQ_ID);
@@ -334,7 +333,7 @@ static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *st
 }
 
 /*-----------------------------------------------------------*/
-static void shutdown(uint32_t cause)
+static void shutdown(uint16_t cause)
 {
     configPRINTF(("Shutdown\n"));
     taskDISABLE_INTERRUPTS();
