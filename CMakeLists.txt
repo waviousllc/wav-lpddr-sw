@@ -54,6 +54,10 @@ message("DRAM_TRAIN:    ${CONFIG_DRAM_TRAIN}")
 set(CONFIG_CAL_PERIODIC false CACHE BOOL "Flag to indicate if periodic calibraiton is performed.")
 message("PERIODIC CAL:  ${CONFIG_CAL_PERIODIC}")
 
+# MCU Interrupt Configuration
+set(CONFIG_WAV_MCU_IRQ_SYNC_CFG 0x00000403)
+set(CONFIG_WAV_MCU_IRQ_EDGE_CFG 0x1FFFFBFC)
+
 ################################################################################
 ##                        SOURCE DIRECTORIES
 ################################################################################/
