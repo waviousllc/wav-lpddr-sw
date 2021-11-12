@@ -1,33 +1,25 @@
-#! /bin/sh
+#! /bin/bash
 # Configures build environment for appropriate target architecture
 
 # Definitions
-BUILD_DIR="build"
-BUILD_TYPE=""
+SOURCE_DIR=$(dirname $0)
+WAV_RTOS_DIR=${WAV_RTOS_DIR:-${SOURCE_DIR}/rtos}
 CONFIG_CAL_PLL="true"
 CONFIG_CAL_ZQCAL="true"
 CONFIG_CAL_SA="true"
 CONFIG_DRAM_TRAIN="true"
 CONFIG_CAL_PERIODIC="true"
 
-# Common build prep function
-init_build_common() {
-  mkdir -p ${BUILD_DIR}
-}
-
 init_lpddr() {
-  cd ${BUILD_DIR}
-  cmake .. -DCMAKE_TOOLCHAIN_FILE="../rtos/toolchain/riscv.toolchain" \
-           -DCONFIG_SRC_ARCH="riscv" \
-           -DCONFIG_TARGET_ARCH="riscv32" \
-           -DCONFIG_TARGET_BOARD="wavious-mcu" \
-           -DCONFIG_CALIBRATE_PLL=${CONFIG_CAL_PLL} \
-           -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CAL_ZQCAL} \
-           -DCONFIG_CALIBRATE_SA=${CONFIG_CAL_SA} \
-           -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN} \
-           -DCONFIG_CAL_PERIODIC=${CONFIG_CAL_PERIODIC} \
-           -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
-  cd ..
+  # Invoke RTOS configure script with addtional parameters
+  args=(
+        -DCONFIG_CALIBRATE_PLL=${CONFIG_CAL_PLL}
+        -DCONFIG_CALIBRATE_ZQCAL=${CONFIG_CAL_ZQCAL}
+        -DCONFIG_CALIBRATE_SA=${CONFIG_CAL_SA}
+        -DCONFIG_DRAM_TRAIN=${CONFIG_DRAM_TRAIN}
+        -DCONFIG_CAL_PERIODIC=${CONFIG_CAL_PERIODIC}
+    )
+    source ${WAV_RTOS_DIR}/configure ${PARAMS} ${args[@]}
 }
 
 print_help() {
@@ -45,10 +37,6 @@ echo "--periodic-cal    (enables periodic calibration)"
 PARAMS=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    -t | --build_type)
-      BUILD_TYPE=$2
-      shift 2
-      ;;
     --no-pll-cal)
       CONFIG_CAL_PLL="false"
       shift 1
@@ -76,10 +64,6 @@ while [ $# -gt 0 ]; do
       shift
       break
       ;;
-    -*|--*=) # unsupported flags
-      echo "Error: Unsupported flag $1" >&2
-      exit 1
-      ;;
     *) # preserve positional arguments
       PARAMS="$PARAMS $1"
       shift
@@ -89,5 +73,4 @@ done
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
-init_build_common
 init_lpddr

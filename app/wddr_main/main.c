@@ -34,6 +34,7 @@
 #include <kernel/io.h>
 #include <kernel/irq.h>
 #include <kernel/messenger.h>
+#include <kernel/printf.h>
 
 /* Messenger includes. */
 #include <messenger/device.h>
@@ -81,7 +82,7 @@ static void shutdown(uint32_t cause);
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-extern uint32_t __start;
+extern uintptr_t __start;
 img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
     .image_magic = IMAGE_MAGIC,
     .image_hdr_version = IMAGE_VERSION_CURRENT,
@@ -89,7 +90,8 @@ img_hdr_t image_hdr __attribute__((section(".image_hdr"))) = {
     .version_major = FW_VERSION_MAJOR,
     .version_minor = FW_VERSION_MINOR,
     .version_patch = FW_VERSION_PATCH,
-    .vector_addr = (uint32_t) &__start,
+    .vector_size = VECTOR_SIZE,
+    .vector_addr = (uintptr_t) &__start,
     .device_id = IMAGE_DEVICE_ID_HOST,
     .git_dirty = GIT_DIRTY,
     .git_ahead = GIT_AHEAD,
@@ -179,7 +181,7 @@ void vApplicationMallocFailedHook( void )
     FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
     to query the size of free heap space that remains (although it does not
     provide information on how the remaining heap might be fragmented). */
-    shutdown(0x20001);
+    shutdown(2);
 }
 
 /*-----------------------------------------------------------*/
@@ -205,7 +207,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
     function is called if a stack overflow is detected. */
-    shutdown(0x30001);
+    shutdown(3);
 }
 
 /*-----------------------------------------------------------*/
@@ -227,18 +229,16 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
      */
     memcpy(&cFileName[0], &pcString[ulFileNameLen - 6], 6);
 
-    if (!strcmp(&cFileName[0], "port.c") && ulLine == 161)
+    // Ignore asserts from port.c
+    if (!strcmp(pcFileName, "port.c"))
     {
         return;
     }
 
     // Write out the file and line number
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP1_CFG__ADR, ulLine);
-    while (*pcString != '\0')
-    {
-        reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP2_CFG__ADR, *pcString++);
-    }
-    shutdown(0x40001);
+    configPRINTF(("ERROR: Aserrtion in %s on line %lu.\n", pcFileName, ulLine));
+    taskDISABLE_INTERRUPTS();
+    shutdown(4);
 }
 
 /*-----------------------------------------------------------*/
@@ -336,7 +336,7 @@ static void handle_message(const Message_t *req, Message_t *rsp, app_state_t *st
 /*-----------------------------------------------------------*/
 static void shutdown(uint32_t cause)
 {
+    configPRINTF(("Shutdown\n"));
     taskDISABLE_INTERRUPTS();
-    reg_write(WDDR_MEMORY_MAP_MCU + WAV_MCU_GP3_CFG__ADR, cause);
-    _exit(1);
+    _exit(cause);
 }

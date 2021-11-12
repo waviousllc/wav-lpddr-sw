@@ -6,7 +6,7 @@
 #ifndef _WDDR_MEMORY_MAP_H_
 #define _WDDR_MEMORY_MAP_H_
 
-#include <board/board.h>
+#include <board/memory_map.h>
 #include "ddr_ca_csr.h"
 #include "ddr_cmn_csr.h"
 #include "ddr_ctrl_csr.h"
