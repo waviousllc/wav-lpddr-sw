@@ -50,6 +50,7 @@ enum
     PHY_IND_PHYMSTR_EXIT,
     PHY_IND_PHYUPD_ENTER,
     PHY_IND_PHYUPD_EXIT,
+    PHY_IND_CTRLUPD_DONE,
 };
 
 struct phy_command_hdr
@@ -142,26 +143,26 @@ uint8_t wddr_get_next_msr(wddr_handle_t wddr)
 void wddr_phymstr_enter(wddr_handle_t wddr, dfi_phymstr_req_t *req)
 {
     configPRINTF(("%ld: WDDR: PHYMSTR enter called\n", xTaskGetTickCount()));
-    //send_phy_indication(wddr, PHY_IND_PHYMSTR_ENTER);
+    send_phy_indication(wddr, PHY_IND_PHYMSTR_ENTER);
 }
 
 void wddr_phymstr_exit(wddr_handle_t wddr)
 {
     configPRINTF(("%ld: WDDR: PHYMSTR exit called\n", xTaskGetTickCount()));
-    //send_phy_indication(wddr, PHY_IND_PHYMSTR_EXIT);
+    send_phy_indication(wddr, PHY_IND_PHYMSTR_EXIT);
 }
 
 void wddr_phyupd_enter(wddr_handle_t wddr, dfi_phyupd_type_t type)
 {
     configPRINTF(("%ld: WDDR: PHYUPD enter called\n", xTaskGetTickCount()));
-    //send_phy_indication(wddr, PHY_IND_PHYUPD_ENTER);
+    send_phy_indication(wddr, PHY_IND_PHYUPD_ENTER);
 }
 
 void wddr_phyupd_exit(wddr_handle_t wddr)
 {
     // Intentionally Empty
     configPRINTF(("%ld: WDDR: PHYUPD exit called\n", xTaskGetTickCount()));
-    //send_phy_indication(wddr, PHY_IND_PHYUPD_EXIT);
+    send_phy_indication(wddr, PHY_IND_PHYUPD_EXIT);
 }
 
 void wddr_ctrlupd_done(wddr_handle_t wddr)
@@ -197,15 +198,21 @@ void wddr_enable_loopback(wddr_handle_t wddr)
     configPRINTF(("%ld: WDDR: Enable Loopback called\n", xTaskGetTickCount()));
 }
 
-wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, List_t *packets)
 {
     configPRINTF(("%ld: WDDR: Load packets called\n", xTaskGetTickCount()));
     return WDDR_SUCCESS;
 }
 
-wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
+wddr_return_t wddr_send_packets(wddr_handle_t wddr)
 {
     configPRINTF(("%ld: WDDR: send packets called\n", xTaskGetTickCount()));
+    return WDDR_SUCCESS;
+}
+
+wddr_return_t wddr_unload_packets(wddr_handle_t wddr, List_t *packets)
+{
+    configPRINTF(("%ld: WDDR: Unload packets called\n", xTaskGetTickCount()));
     return WDDR_SUCCESS;
 }
 
@@ -236,27 +243,30 @@ static size_t recv_data(wddr_handle_t wddr, void *buff, size_t len)
     // Read data from the client
     int recv_len = recv(wddr->client_fd, buff, len, MSG_WAITALL);
 
-    if (recv_len == -1)
-    {
-        configPRINTF(("something went wrong reading from client.\n"));
-        exit(1);
-    }
-
     // Client closed connection
     if (recv_len == 0)
     {
-       close(wddr->client_fd);
-       wddr->client_fd = -1;
+        configPRINTF(("closing client.\n"));
+        close(wddr->client_fd);
+        wddr->client_fd = -1;
+    }
+
+    else if (recv_len == -1)
+    {
+        if (is_valid_errno())
+        {
+            return 0;
+        }
+        exit(1);
     }
 
     return recv_len;
 }
 
-
 static void xPhyServerTask( void *pvParameters )
 {
     wddr_handle_t wddr = (wddr_handle_t) pvParameters;
-    const TickType_t xDelay = pdMS_TO_TICKS(500); // 500 ms
+    const TickType_t xDelay = pdMS_TO_TICKS(1); // 1 ms
     int listener;
     struct sockaddr_in addr = {0};
     struct sockaddr_in client_addr = {0};
@@ -351,7 +361,10 @@ static void send_phy_indication(wddr_handle_t wddr, uint8_t indication)
     {
         if (wddr->client_fd >= 0)
         {
+            // Header
             send(wddr->client_fd, &ind_hdr, sizeof(struct phy_command_hdr), 0);
+
+            // Payload
             send(wddr->client_fd, &indication, sizeof(uint8_t), 0);
         }
     }

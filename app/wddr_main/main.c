@@ -236,8 +236,7 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 
     // Write out the file and line number
     configPRINTF(("ERROR: Aserrtion in %s on line %lu.\n", pcFileName, ulLine));
-    taskDISABLE_INTERRUPTS();
-    shutdown(4);
+    taskDISABLE_INTERRUPTS();    shutdown(4);
 }
 
 /*-----------------------------------------------------------*/

@@ -2,6 +2,7 @@ DOCKER_NAME=$1
 if [[ -z `docker ps -q -f name=${DOCKER_NAME}-${USER}` ]] ; then
     docker run \
     --volume ${PWD}:/usr/local/build/src/ \
+    --volume /Users/developer/Developer/git/wav-lpddr-sw-test:/usr/local/build/test/ \
     --network host --rm --name ${DOCKER_NAME}-${USER} -it \
     ${DOCKER_NAME}:latest bash
 else
