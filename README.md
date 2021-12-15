@@ -48,14 +48,14 @@ For this repository, only mission-mode applications have been included.
 
 ## Building
 It is recommended that Docker is used for the build environment. Build the Docker
-Image using the `Dockerfile` located under the `docker` directory of this
-project. Once built, use `./run.sh` script to create a shell within the Docker
+Image using the `Dockerfile` located under the `docker` directory of rtos submodule.
+Once built, use `./docker/run.sh` script to create a shell within the Docker
 environment. All code is linked into the container via a Docker volume. Thus,
 changes persist between runs and edits are shared outside and within the
 Docker container.
 
 ### Building Docker
-`docker build -t <IMAGE_NAME>:latest docker/`
+`docker build -t <IMAGE_NAME>:latest rtos/docker/`
 
 ### Building Software
 ~~~
