@@ -20,13 +20,63 @@
 
 #define MISR_STEP_SIZE  (2)
 
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
+{
+    dfi_return_t ret;
+    ListItem_t const *end;
+    const packet_item_t *last;
+    dfi_tx_packet_t packet;
+
+    // Reset start pointers
+    dfi_fifo_set_ptr_reg_if(wddr->dfi.dfich_reg, 0x0, 0x0);
+    dfi_fifo_load_ptr_reg_if(wddr->dfi.dfich_reg);
+
+    // Load packets
+    ret = dfi_buffer_fill_packets(&wddr->dfi, packets);
+    switch(ret)
+    {
+        case DFI_ERROR_FIFO_FULL:
+            return WDDR_ERROR_FIFO_FULL;
+        case DFI_ERROR:
+            return WDDR_ERROR;
+        default:
+            break;
+    }
+
+    /**
+     * @note    Hardware requires that an additional packet sits in the FIFO,
+     *          such that its timestamp is given by stop_ptr + 1. This packet
+     *          isn't transmitted but must be loaded for FIFO to loop properly.
+     *          This function will insert it.
+     */
+    end = listGET_END_MARKER(packets);
+    last = (packet_item_t *) listGET_LIST_ITEM_OWNER(end->pxPrevious);
+    packet.packet.time = last->packet.packet.time + 1;
+
+    dfi_fifo_write_ig_reg_if(wddr->dfi.dfich_reg, packet.raw_data);
+
+    // Update the stop pointer based on number of packets loaded
+    dfi_fifo_set_ptr_reg_if(wddr->dfi.dfich_reg, 0x0, listCURRENT_LIST_LENGTH(packets) - 1);
+
+    return WDDR_SUCCESS;
+}
+
 wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
 {
-    // TODO: Fix this call to load
-    wddr_load_packets(wddr, packets);
+    // Setup MISR
     misr_clear_lfsr_reg_if(wddr->dfi.dfich_reg);
     misr_set_enable_reg_if(wddr->dfi.dfich_reg, MISR_EN_ALL, true);
+
+    // Setup loop mode
+    dfi_fifo_set_loop_mode_reg_if(wddr->dfi.dfich_reg, true, 0x1);
+    dfi_fifo_load_ptr_reg_if(wddr->dfi.dfich_reg);
+
+    // Send packets
     dfi_buffer_send_packets(&wddr->dfi);
+
+    // Turn off loop mode
+    dfi_fifo_set_loop_mode_reg_if(wddr->dfi.dfich_reg, false, 0x0);
+
     return WDDR_SUCCESS;
 }
 

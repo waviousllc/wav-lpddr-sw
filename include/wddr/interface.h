@@ -396,8 +396,13 @@ void wddr_enable_loopback(wddr_handle_t wddr);
  * @note    Call wddr_send_packets to send the loaded packets.
  *
  * @note    This function allows for packet loaded and packet sending to be
- *          separated. If you want to send packets immediately, then just call
- *          wddr_send_packets.
+ *          separated.
+ *
+ * @note    This function should be called at least once before calling send.
+ *          send can be called n times after calling load, but please ensure
+ *          that same packets argument is passed to each. When a different
+ *          set of packets is to be sent, call load again with the new set, and
+ *          pass the new set to each call to send.
  *
  * @param[in]   wddr    WDDR device handle.
  * @param[in]   packets List of packets to load.
@@ -414,6 +419,10 @@ wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets);
  *
  * @details Sends packets. Loads IG FIFO with given packets if FIFO is not
  *          already loaded.
+ *
+ * @note    Depending on the PHY Target, packets argument might be ignored.
+ *          To ensure that behavior is consistent, always use the same packets
+ *          argument for calls to send that were used for the call to load.
  *
  * @param[in]   wddr    WDDR device handle.
  * @param[in]   packets List of packets to load (if not already loaded).
