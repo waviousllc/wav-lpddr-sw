@@ -168,12 +168,12 @@ void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 
     /**
      * @note    This is a patch because on this platform it is known that assert
-     *          will fail for port.c
+     *          will fail for port.c.
      */
     memcpy(&cFileName[0], &pcString[ulFileNameLen - 6], 6);
 
     // Ignore asserts from port.c
-    if (!strcmp(pcFileName, "port.c"))
+    if (!strcmp(cFileName, "port.c"))
     {
         return;
     }
