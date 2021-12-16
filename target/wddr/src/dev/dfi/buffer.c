@@ -75,10 +75,7 @@ static dfi_return_t dfi_buffer_write_packets(dfi_dev_t *dfi,
 
     next = listGET_HEAD_ENTRY(packet_list);
 
-    /**
-     * Send all packets except the last packet.
-     * The last packet is empty except for timestamp.
-     */
+    // Load all packets
     do
     {
         packet_item = (packet_item_t *) listGET_LIST_ITEM_OWNER(next);

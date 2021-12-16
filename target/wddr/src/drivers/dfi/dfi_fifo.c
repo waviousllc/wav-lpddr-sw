@@ -56,6 +56,13 @@ void dfi_fifo_send_packets_reg_if(dfich_reg_t *dfich_reg)
 {
     uint32_t reg_val;
 
+    // Reset TS
+    reg_val = dfich_reg->DDR_DFICH_TOP_1_CFG;
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_TS_RESET, 0x1);
+    dfich_reg->DDR_DFICH_TOP_1_CFG = reg_val;
+    reg_val = UPDATE_REG_FIELD(reg_val, DDR_DFICH_TOP_1_CFG_TS_RESET, 0x0);
+    dfich_reg->DDR_DFICH_TOP_1_CFG = reg_val;
+
     // Send packets
     dfi_fifo_set_mode_reg_if(dfich_reg, true);
 

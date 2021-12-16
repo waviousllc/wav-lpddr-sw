@@ -7,5 +7,6 @@
 #define _DFI_EXT_H_
 
 #include "dfi_misr.h"
+#include "dfi_fifo_ext.h"
 
 #endif /* _DFI_EXT_H_ */
