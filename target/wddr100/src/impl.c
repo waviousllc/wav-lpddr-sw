@@ -23,7 +23,6 @@
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
-packet_item_t packets[56] __attribute__ ((section (".data"))) = {0};
 static struct wddr_device_t wddr_instance __attribute__ ((section (".data"))) = {0};
 
 // Static WDDR Table declaration
@@ -647,16 +646,11 @@ static void wddr_dfi_buffer_flush(dfi_dev_t *dfi)
 }
 static void wddr_dfi_buffer_prime(dfi_dev_t *dfi)
 {
-    dfi_tx_packet_buffer_t buffer;
-
     // Prime DFI buffer with CKE sequence
-    dfi_tx_packet_buffer_init(&buffer);
-    create_cke_packet_sequence(&buffer, 1);
-    create_cke_packet_sequence(&buffer, 10);
-    dfi_buffer_fill_and_send_packets(dfi, &buffer.list);
-
-    // Free packets
-    dfi_tx_packet_buffer_free(&buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    create_cke_packet_sequence(&dfi->packet.buff, 1);
+    create_cke_packet_sequence(&dfi->packet.buff, 10);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 
     // Must disable buffer when done
     dfi_buffer_disable(dfi);
@@ -665,37 +659,11 @@ static void wddr_dfi_buffer_prime(dfi_dev_t *dfi)
 static void wddr_prep_freq_switch_mrw_update(wddr_handle_t wddr,
                                              dram_freq_cfg_t *dram_cfg)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-    packet_storage_t storage = {
-        .packets = packets,
-        .len = 56,
-        .index = 0,
-    };
-
-    // Initialize TX Packet Buffer
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    packet_buffer.storage = &storage;
-
-    // Allocate and Initialize
-    for (uint8_t j = 0; j < storage.len; j++)
-    {
-        volatile uint32_t *data = storage.packets[j].packet.raw_data;
-        uint8_t i = TX_PACKET_SIZE_WORDS;
-        while (i--)
-        {
-            *data++ = 0;
-        }
-    }
-
-    dram_prepare_mrw_update(&wddr->dram, &packet_buffer, dram_cfg);
+    dfi_tx_packet_buffer_clear(&wddr->dfi.packet.buff);
+    dram_prepare_mrw_update(&wddr->dram, &wddr->dfi.packet.buff, dram_cfg);
 
     // Prefill packets
-    dfi_buffer_fill_packets(&wddr->dfi, &packet_buffer.list);
-
-    /**
-     * @note: No need to call dfi_tx_packet_buffer_free since packet_buffer
-     *        is created on the stack and won't be reused.
-     */
+    dfi_buffer_fill_packets(&wddr->dfi, &wddr->dfi.packet.buff.list);
 }
 
 static void wddr_clear_fifo_all_channels(wddr_handle_t wddr)

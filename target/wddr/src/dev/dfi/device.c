@@ -27,6 +27,11 @@ void dfi_init(dfi_dev_t *dfi, uint32_t base)
     dfi->dfi_reg = (dfi_reg_t *)(base + WDDR_MEMORY_MAP_DFI);
     dfi->dfich_reg = (dfich_reg_t *)(base + WDDR_MEMORY_MAP_DFI_CH0);
 
+    // Setup packet buffer
+    dfi_tx_packet_buffer_init(&dfi->packet.buff,
+                              dfi->packet.pool,
+                              PACKET_STORAGE_SIZE);
+
     // Turn on hold feature of IG FIFO
     dfi_fifo_set_wdata_hold_reg_if(dfi->dfich_reg, true);
 

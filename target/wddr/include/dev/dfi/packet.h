@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <compiler.h>
 #include <dfi/command.h>
 #include <kernel/list.h>
@@ -429,39 +430,27 @@ typedef struct packet_item_t
 } packet_item_t;
 
 /**
- * @brief   Packet Storage Structure
- *
- * @details Structure used as storage for allocating packets from. This
- *          can be attached to a dfi_tx_packet_buffer_t instance to use
- *          as storage backend, rather than using malloc.
- *
- * packets  pointer to underlying storage.
- * index    current packet index within storage.
- * len      number of packets pointed to by packets member.
- */
-typedef struct packet_storage_t
-{
-    packet_item_t   *packets;
-    uint8_t         index;
-    uint8_t         len;
-} packet_storage_t;
-
-/**
  * @brief    DFI TX Packet Buffer
  *
- * @details In memory packet buffer that is used to prepare DFI packets
- *          prior to flushing to hardware.
+ * @details In memory packet buffer that is used to prepare a sequence of DFI
+ *          packets prior to flushing to hardware.
  *
  * ts_last_packet   timestamp of last packet stored in buffer.
  * list             linked list of packets. (This is the "buffer").
- * storage          pointer to optional storage backend to allocate packets
- *                  from rather than using malloc.
+ * pool.packets     pointer to underlying storage.
+ * pool.index       current packet index within storage.
+ * pool.size        size of packet pool (i.e. number of packet_items).
  */
 typedef struct dfi_tx_packet_buffer_t
 {
     uint16_t            ts_last_packet;
     List_t              list;
-    packet_storage_t    *storage;
+    struct
+    {
+        packet_item_t   *packets;
+        uint8_t         index;
+        uint8_t         len;
+    } pool;
 } dfi_tx_packet_buffer_t;
 
 /**
@@ -485,21 +474,25 @@ typedef struct dfi_rx_packet_buffer_t
  * @details Initializes a TX packet buffer.
  *
  * @param[out]  buffer      pointer to tx packet buffer.
+ * @param[in]   packet_pool pool of packets to connect to buffer.
+ * @param[in]   num_packets number of packets in the pool.
  *
  * @return      void
  */
-void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer);
+void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer,
+                               packet_item_t *packet_pool,
+                               uint8_t num_packets);
 
 /**
- * @brief   DFI TX Packet Buffer Free
+ * @brief   DFI TX Packet Buffer Clears
  *
- * @details Frees all packets in the TX packet buffer.
+ * @details Clears the TX packet buffer.
  *
- * @param[in]   buffer  pointer to tx packet buffer to free.
+ * @param[in]   buffer  pointer to tx packet buffer to clear.
  *
  * @return  void
  */
-void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer);
+void dfi_tx_packet_buffer_clear(dfi_tx_packet_buffer_t *buffer);
 
 /**
  * @brief   DFI RX Packet Buffer Init

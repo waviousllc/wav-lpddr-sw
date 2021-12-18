@@ -19,31 +19,25 @@ static uint32_t determine_group_mask(packet_group_info_t *group_info,
                                      uint8_t cycles_per_packet,
                                      uint8_t phases_per_cycle_shft);
 
-void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer)
+void dfi_tx_packet_buffer_init(dfi_tx_packet_buffer_t *buffer, packet_item_t *packet_pool, uint8_t num_packets)
 {
     vListInitialise(&buffer->list);
     buffer->ts_last_packet = 1;
-    buffer->storage = NULL;
+    buffer->pool.index = 0;
+    buffer->pool.packets = packet_pool;
+    buffer->pool.len = num_packets;
 }
 
-void dfi_tx_packet_buffer_free(dfi_tx_packet_buffer_t *buffer)
+void dfi_tx_packet_buffer_clear(dfi_tx_packet_buffer_t *buffer)
 {
     ListItem_t *pxCurr, *pxNext;
-    packet_item_t *packet;
+    // Remove all items from the list
     listFOR_EACH_LIST_ITEM_SAFE(pxCurr, pxNext, &buffer->list)
     {
         uxListRemove(pxCurr);
-        if (buffer->storage == NULL)
-        {
-            packet = (packet_item_t *) listGET_LIST_ITEM_OWNER(pxCurr);
-            vPortFree(packet);
-        }
-        else
-        {
-            buffer->storage->index--;
-        }
     }
     buffer->ts_last_packet = 1;
+    buffer->pool.index = 0;
 }
 
 void dfi_rx_packet_buffer_init(dfi_rx_packet_buffer_t *buffer)
@@ -315,30 +309,17 @@ void fill_rddata_packet(packet_item_t *packet,
 static void create_packet(dfi_tx_packet_buffer_t *buffer, packet_item_t **packet)
 {
     packet_item_t *new_packet = NULL;
-
-    if (buffer->storage != NULL && buffer->storage->packets != NULL)
+    if (buffer->pool.index < buffer->pool.len)
     {
-        if (buffer->storage->index < buffer->storage->len)
+        new_packet = &buffer->pool.packets[buffer->pool.index];
+        // Intialize packet
+        volatile uint32_t *data = new_packet->packet.raw_data;
+        uint8_t i = TX_PACKET_SIZE_WORDS;
+        while (i--)
         {
-
-            new_packet = &buffer->storage->packets[buffer->storage->index++];
+            *data++ = 0;
         }
     }
-    else
-    {
-        new_packet = (packet_item_t *) pvPortMalloc(sizeof(packet_item_t));
-        if (new_packet != NULL)
-        {
-            // Intialize packet
-            volatile uint32_t *data = new_packet->packet.raw_data;
-            uint8_t i = TX_PACKET_SIZE_WORDS;
-            while (i--)
-            {
-                *data++ = 0;
-            }
-        }
-    }
-
     *packet = new_packet;
 }
 

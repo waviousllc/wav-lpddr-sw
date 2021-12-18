@@ -87,36 +87,28 @@ void dram_frequency_set(dram_dev_t *dram,
 
 void dram_power_down(__UNUSED__ dram_dev_t *dram, dfi_dev_t *dfi)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    create_ck_packet_sequence(&packet_buffer, 1);
-    create_ck_packet_sequence(&packet_buffer, 10);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    create_ck_packet_sequence(&dfi->packet.buff, 1);
+    create_ck_packet_sequence(&dfi->packet.buff, 10);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 }
 
 void dram_idle(__UNUSED__ dram_dev_t *dram, dfi_dev_t *dfi)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    create_ck_packet_sequence(&packet_buffer, 1);
-    create_cke_packet_sequence(&packet_buffer, 30);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    create_ck_packet_sequence(&dfi->packet.buff, 1);
+    create_cke_packet_sequence(&dfi->packet.buff, 30);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 }
 
 void dram_frequency_init(dram_dev_t *dram,
                          dfi_dev_t *dfi,
                          dram_freq_cfg_t *dram_cfg)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-
     // Initialize TX Packet Buffer
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_prepare_mrw_update(dram, &packet_buffer, dram_cfg);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    dram_prepare_mrw_update(dram, &dfi->packet.buff, dram_cfg);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 
     // Update DRAM frequency after sending MRW to ensure previous tables
     // are used to send MRW.
@@ -126,32 +118,26 @@ void dram_frequency_init(dram_dev_t *dram,
 void dram_cbt_enter(dram_dev_t *dram,
                     dfi_dev_t *dfi)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-
     dram->mr13 |= CBT__MSK;
 
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
-    create_cke_packet_sequence(&packet_buffer, 1);
-    create_ck_packet_sequence(&packet_buffer, 15);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    dram_create_mrw_packet_sequence(&dfi->packet.buff, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
+    create_cke_packet_sequence(&dfi->packet.buff, 1);
+    create_ck_packet_sequence(&dfi->packet.buff, 15);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 }
 
 void dram_cbt_exit(dram_dev_t *dram,
                    dfi_dev_t *dfi)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-
     dram->mr13 &= ~CBT__MSK;
 
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    create_ck_packet_sequence(&packet_buffer, 15);
-    create_cke_packet_sequence(&packet_buffer, 1);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, dram->cfg->t_vref_ca_long);
-    create_cke_packet_sequence(&packet_buffer, 1);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    create_ck_packet_sequence(&dfi->packet.buff, 15);
+    create_cke_packet_sequence(&dfi->packet.buff, 1);
+    dram_create_mrw_packet_sequence(&dfi->packet.buff, dram->cfg->ratio, CS_0, 0xD, dram->mr13, dram->cfg->t_vref_ca_long);
+    create_cke_packet_sequence(&dfi->packet.buff, 1);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 }
 
 void dram_set_fsp_wr(dram_dev_t *dram,
@@ -537,13 +523,10 @@ static void dram_write_mode_register(dram_dev_t *dram,
                                      uint8_t mr,
                                      uint8_t op)
 {
-    dfi_tx_packet_buffer_t packet_buffer;
-
-    dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, mr, op, 1);
-    create_cke_packet_sequence(&packet_buffer, 1);
-    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
-    dfi_tx_packet_buffer_free(&packet_buffer);
+    dfi_tx_packet_buffer_clear(&dfi->packet.buff);
+    dram_create_mrw_packet_sequence(&dfi->packet.buff, dram->cfg->ratio, CS_0, mr, op, 1);
+    create_cke_packet_sequence(&dfi->packet.buff, 1);
+    dfi_buffer_fill_and_send_packets(dfi, &dfi->packet.buff.list);
 }
 
 static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
