@@ -404,6 +404,12 @@ void wddr_enable_loopback(wddr_handle_t wddr);
  *          set of packets is to be sent, call load again with the new set, and
  *          pass the new set to each call to send.
  *
+ * @note    It isn't safe to use packets list parameter until
+ *          wddr_unload_packets is called.
+ *
+ * @note    This function must be paired with a call to wddr_unload_packets
+ *          before a different set of packets can be loaded.
+ *
  * @param[in]   wddr    WDDR device handle.
  * @param[in]   packets List of packets to load.
  *
@@ -412,27 +418,40 @@ void wddr_enable_loopback(wddr_handle_t wddr);
  * @retval      WDDR_ERROR_FIFO_FULL if FIFO is full before all packets loaded.
  * @retval      WDDR_ERROR otherwise.
  */
-wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets);
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, List_t *packets);
 
 /**
  * @brief   Wavious DDR (WDDR) Send Packets
  *
- * @details Sends packets. Loads IG FIFO with given packets if FIFO is not
- *          already loaded.
- *
- * @note    Depending on the PHY Target, packets argument might be ignored.
- *          To ensure that behavior is consistent, always use the same packets
- *          argument for calls to send that were used for the call to load.
+ * @details Sends packets. Must be called after a call to wddr_load_packets.
  *
  * @param[in]   wddr    WDDR device handle.
- * @param[in]   packets List of packets to load (if not already loaded).
  *
  * @return      returns whether packets were loaded successfully.
  * @retval      WDDR_SUCCESS if successful.
- * @retval      WDDR_ERROR_FIFO_FULL if FIFO is full before all packets loaded.
- * @retval      WDDR_ERROR otherwise.
+ * @retval      WDDR_ERROR if no packets are loaded.
  */
-wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets);
+wddr_return_t wddr_send_packets(wddr_handle_t wddr);
+
+/**
+ * @brief   Wavious DDR (WDDR) Unload Packets
+ *
+ * @details Unloads WDDR IG FIFO.
+ *
+ * @note    This function should be called before calling wddr_load_packets
+ *          again.
+ *
+ * @note    It is safe to use packets list parameter again after this function
+ *          is called. List can be modified or deleted safely.
+ *
+ * @param[in]   wddr    WDDR device handle.
+ * @param[in]   packets List of packets that were previously loaded.
+ *
+ * @return      returns whether packets were unloaded successfully.
+ * @retval      WDDR_SUCCESS if successful.
+ * @retval      WDDR_ERROR if no packets are loaded.
+ */
+wddr_return_t wddr_unload_packets(wddr_handle_t wddr, List_t *packets);
 
 /**
  * @brief   Wavious DDR (WDDR) Validate Receive Data

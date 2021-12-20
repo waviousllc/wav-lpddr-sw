@@ -35,6 +35,9 @@ static bool wddr_handle_taken = false;
 // IG FIFO state
 static bool ig_fifo_loaded = false;
 
+// Loaded packets
+static List_t loaded_packet_list;
+
 /*******************************************************************************
 **                            FUNCTION DECLARATIONS
 *******************************************************************************/
@@ -67,6 +70,11 @@ void wddr_enable_loopback(wddr_handle_t wddr);
 
 /** @brief  Default WDDR Training Function */
 wddr_return_t wddr_train(wddr_handle_t wddr);
+
+
+// Transfer ownership of list items to another list
+static void vListTransferItems(List_t * const pxListNewOwner, List_t * const pxListAdd);
+
 /*******************************************************************************
 **                              IMPLEMENTATIONS
 *******************************************************************************/
@@ -120,6 +128,9 @@ wddr_handle_t wddr_init(uint32_t base)
     // DRAM
     dram_init(&wddr_instance.dram,
               &wddr_instance.table->cfg.freq[WDDR_PHY_BOOT_FREQ].dram);
+
+    // Initialize loaded packets
+    vListInitialise(&loaded_packet_list);
 
     return &wddr_instance;
 }
@@ -492,11 +503,32 @@ void wddr_gate_external_interfaces(wddr_handle_t wddr, bool should_gate)
     wddr_set_dram_resetn_pin_reg_if(wddr, should_gate, false);
 }
 
-__attribute__(( weak ))
-wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
+static void vListTransferItems(List_t * const pxListNewOwner, List_t * const pxListAdd)
+
+{
+    ListItem_t *new_tail = (ListItem_t *) pxListNewOwner->xListEnd.pxPrevious; // Last item in new
+    ListItem_t *old_head = listGET_HEAD_ENTRY(pxListAdd); // first item in old
+    ListItem_t *old_tail = (ListItem_t *) pxListAdd->xListEnd.pxPrevious; // Last item in old
+
+    old_tail->pxNext = new_tail->pxNext;
+    old_tail->pxNext->pxPrevious = old_tail;
+
+    // Insert beginning of old into end of new
+    new_tail->pxNext = old_head;
+    old_head->pxPrevious = new_tail;
+
+    pxListNewOwner->uxNumberOfItems += pxListAdd->uxNumberOfItems;
+
+    // Reset old list
+    vListInitialise(pxListAdd);
+}
+
+static wddr_return_t __wddr_load_packets_prv(wddr_handle_t wddr, List_t *packets)
 {
     dfi_return_t ret;
-    ret = dfi_buffer_fill_packets(&wddr->dfi, packets);
+ 
+    // Load into hardware
+    ret = dfi_buffer_fill_packets(&wddr->dfi, &loaded_packet_list);
     switch(ret)
     {
         case DFI_ERROR_FIFO_FULL:
@@ -510,12 +542,36 @@ wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
 }
 
 __attribute__(( weak ))
-wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, List_t *packets)
+{
+    // Can't call load multiple times without calling unload
+    if (!listLIST_IS_EMPTY(&loaded_packet_list))
+    {
+        return WDDR_ERROR;
+    }
+
+    // Transfer packets over to internal list
+    vListTransferItems(&loaded_packet_list, packets);
+
+    // Load into hardware
+    return __wddr_load_packets_prv(wddr, &loaded_packet_list);
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_send_packets(wddr_handle_t wddr)
 {
     wddr_return_t ret;
+
+    // Can't call send without loading packets
+    if (listLIST_IS_EMPTY(&loaded_packet_list))
+    {
+        return WDDR_ERROR;
+    }
+
+    // Load into HW if needed
     if (!ig_fifo_loaded)
     {
-        ret = wddr_load_packets(wddr, packets);
+        ret = __wddr_load_packets_prv(wddr, &loaded_packet_list);
         if (ret != WDDR_SUCCESS)
         {
             return ret;
@@ -524,6 +580,20 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
 
     dfi_buffer_send_packets(&wddr->dfi);
     ig_fifo_loaded = false;
+    return WDDR_SUCCESS;
+}
+
+__attribute__(( weak ))
+wddr_return_t wddr_unload_packets(wddr_handle_t wddr, List_t *packets)
+{
+    // Can't call unload multiple times without calling load
+    if (listLIST_IS_EMPTY(&loaded_packet_list))
+    {
+        return WDDR_ERROR;
+    }
+
+    // Transfer packets over to internal list
+    vListTransferItems(packets, &loaded_packet_list);
     return WDDR_SUCCESS;
 }
 
