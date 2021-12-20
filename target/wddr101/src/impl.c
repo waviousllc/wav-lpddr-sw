@@ -20,12 +20,20 @@
 
 #define MISR_STEP_SIZE  (2)
 
-wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
+static bool ig_fifo_loaded = false;
+
+wddr_return_t wddr_load_packets(wddr_handle_t wddr, List_t *packets)
 {
     dfi_return_t ret;
     ListItem_t const *end;
     const packet_item_t *last;
     dfi_tx_packet_t packet;
+
+    // Can't call load multiple times without calling unload
+    if (ig_fifo_loaded)
+    {
+        return WDDR_ERROR;
+    }
 
     // Reset start pointers
     dfi_fifo_set_ptr_reg_if(wddr->dfi.dfich_reg, 0x0, 0x0);
@@ -58,11 +66,19 @@ wddr_return_t wddr_load_packets(wddr_handle_t wddr, const List_t *packets)
     // Update the stop pointer based on number of packets loaded
     dfi_fifo_set_ptr_reg_if(wddr->dfi.dfich_reg, 0x0, listCURRENT_LIST_LENGTH(packets) - 1);
 
+    ig_fifo_loaded = true;
+
     return WDDR_SUCCESS;
 }
 
-wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
+wddr_return_t wddr_send_packets(wddr_handle_t wddr)
 {
+    // Can't send if load hasn't been called
+    if (!ig_fifo_loaded)
+    {
+        return WDDR_ERROR;
+    }
+
     // Setup MISR
     misr_clear_lfsr_reg_if(wddr->dfi.dfich_reg);
     misr_set_enable_reg_if(wddr->dfi.dfich_reg, MISR_EN_ALL, true);
@@ -77,6 +93,12 @@ wddr_return_t wddr_send_packets(wddr_handle_t wddr, const List_t *packets)
     // Turn off loop mode
     dfi_fifo_set_loop_mode_reg_if(wddr->dfi.dfich_reg, false, 0x0);
 
+    return WDDR_SUCCESS;
+}
+
+wddr_return_t wddr_unload_packets(wddr_handle_t wddr, List_t *packets)
+{
+    ig_fifo_loaded = false;
     return WDDR_SUCCESS;
 }
 
