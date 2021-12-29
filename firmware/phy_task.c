@@ -41,6 +41,9 @@
 /** Firmware Task Entry Function */
 static void firmwareTask(void *pvParameters);
 
+/** Firmware PHYUPD Task Entry Function */
+static void firmwarePhyUpdTask(void *pvParameters);
+
 #if CONFIG_CAL_PERIODIC
 /** Firmware Periodic Calibration Task */
 static void firmwarePeriodicCalTask(void *pvParameters);
@@ -58,17 +61,14 @@ static fw_response_t handle_dfi_event(fw_phy_event_t event, void *data);
 /** Internal function for handling Low Power events */
 static fw_response_t handle_lp_event(fw_phy_event_t event, void *data);
 
-/** Internal callback called when DFI PHYUPD Timer expires */
-static void dfi_phyupd_timer_callback(TimerHandle_t xTimer);
+/** Internal function for performing iocal and updating the PHY */
+static void perform_iocal_and_update(void);
 
 /*******************************************************************************
 **                           VARIABLE DECLARATIONS
 *******************************************************************************/
 // Handle to WDDR device
 static wddr_handle_t wddr;
-
-// Handle to DFI PHYUPD Timer
-static TimerHandle_t xDfiPhyUpdTimer;
 
 // All Firmware states
 static struct state errorState;
@@ -81,17 +81,29 @@ static struct state dfiIdle,
 
 static struct firmware_manager
 {
-    TaskHandle_t  task;     // Firmware Task Handle
     QueueHandle_t mq;       // Firmware Message Queue
     QueueHandle_t rq;       // Firmware Retry Queue
-#if CONFIG_CAL_PERIODIC
-    Completion_t phyMstrEvent;
-#endif /* CONFIG_CAL_PERIODIC */
     struct
     {
-        bool ready;         // Status for if firmware has been started
-        bool error;         // Status for if firmware is in error state
-        bool rq_ready;      // Status for processing retry queue
+        TaskHandle_t event;     // Firmare Event Task
+        TaskHandle_t phyupd;    // PHYUPD Task
+    } task;
+
+    struct
+    {
+        Completion_t phyUpd;
+#if CONFIG_CAL_PERIODIC
+        Completion_t phyMstr;
+#endif /* CONFIG_CAL_PERIODIC */
+    } event;
+
+
+    struct
+    {
+        bool ready;                     // Firmware start status
+        bool error;                     // Firmware error status
+        bool rq_ready;                  // Status for processing retry queue
+        TickType_t prev_phyupd_tick;    // Last tick that PHYUPD was done
     } status;
     struct
     {
@@ -174,6 +186,10 @@ static void dfi_phymstr_abort(void *currentStateData,
                              struct event *event,
                              void *newStateData);
 
+/** Internal function called when PHYUPD_REQ event occurs while in PHYMSTR. */
+static void dfi_phymstr_iocal(void *currentStateData,
+                             struct event *event,
+                             void *newStateData);
 
 /** Internal function called when exiting CTRLUPD_DEASSERT event occurs. */
 static void dfi_ctrlupd_exit_handler(void *currentStateData,
@@ -249,6 +265,7 @@ static struct state dfiPhyMstr = {
     .entryState = NULL,
     .transitions = (struct transition[]) {
         {FW_PHY_EVENT_PHYMSTR_EXIT, NULL, NULL, NULL, &dfiIdle},
+        {FW_PHY_EVENT_PHYUPD_REQ, NULL, NULL, dfi_phymstr_iocal, &dfiPhyMstr},
     },
     .numTransitions = 1,
     .data = NULL,
@@ -288,7 +305,7 @@ void fw_phy_task_init(void)
 {
     configASSERT(fw_manager.mq == NULL);
     configASSERT(fw_manager.rq == NULL);
-    configASSERT(fw_manager.task == NULL);
+    configASSERT(fw_manager.task.event == NULL);
 
     // Initialize PHY
     wddr = wddr_init(WDDR_BASE_ADDR);
@@ -306,23 +323,15 @@ void fw_phy_task_init(void)
     fw_manager.rq = xQueueCreate(MSG_QUEUE_LEN, sizeof(fw_msg_t));
     configASSERT(fw_manager.rq != NULL);
 
-    // Create PHYUPD Timer
-    xDfiPhyUpdTimer = xTimerCreate("DFI PHYUPD Timer",
-                                    DFI_PHYUPD_PERIOD,
-                                    pdTRUE,
-                                    NULL,
-                                    dfi_phyupd_timer_callback);
-    configASSERT(xDfiPhyUpdTimer != NULL);
-
     // Create the task
     xTaskCreate(firmwareTask,
                 "FW Task",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 configMAX_PRIORITIES - 1,
-                &fw_manager.task);
+                &fw_manager.task.event);
 
-    configASSERT(fw_manager.task != NULL);
+    configASSERT(fw_manager.task.event != NULL);
 
 #if CONFIG_CAL_PERIODIC
     __UNUSED__ BaseType_t ret = xTaskCreate(firmwarePeriodicCalTask,
@@ -333,6 +342,14 @@ void fw_phy_task_init(void)
                                             NULL);
     configASSERT(ret == pdTRUE);
 #endif /* CONFIG_CAL_PERIODIC */
+}
+
+/*-----------------------------------------------------------*/
+static void perform_iocal_and_update(void)
+{
+    // Perform IOCAL and update
+    wddr_iocal_calibrate(wddr);
+    wddr_iocal_update_phy(wddr);
 }
 
 /*-----------------------------------------------------------*/
@@ -440,13 +457,15 @@ static fw_response_t handle_start_event(__UNUSED__ fw_phy_event_t event,
     disable_irq(MCU_FAST_IRQ_CTRLUPD_REQ);
     wddr_disable_ctrlupd_interface(wddr);
 
-    // Start the PHYUPD Timer
-    if (xTimerStart(xDfiPhyUpdTimer, 0) == pdFAIL)
-    {
-        xTimerDelete(xDfiPhyUpdTimer, 0);
-        fw_manager.status.error = true;
-        return FW_RESP_FAILURE;
-    }
+    // Create the PHYUPD Task
+    xTaskCreate(firmwarePhyUpdTask,
+                "FW PHYUPD Task",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 1,
+                &fw_manager.task.phyupd);
+
+    configASSERT(fw_manager.task.phyupd != NULL);
 
     fw_manager.status.ready = true;
     return FW_RESP_SUCCESS;
@@ -517,21 +536,52 @@ static fw_response_t handle_lp_event(fw_phy_event_t event, void *data)
 }
 
 /*-----------------------------------------------------------*/
-static void dfi_phyupd_timer_callback(TimerHandle_t xTimer)
+/** Firmware PHYUPD Task */
+static void firmwarePhyUpdTask(void *pvParameters)
 {
-    __UNUSED__ BaseType_t ret;
+    TickType_t xLastWakeTime;
+    uint32_t resp;
     fw_msg_t msg = {
         .event = FW_PHY_EVENT_PHYUPD_REQ,
         .data = (void *) DFI_PHYUPD_TYPE_0,
-        .xSender = NULL,
+        .xSender = fw_manager.task.phyupd,
     };
 
-    // Perform calibration. Should there be a dedicated task instead?
-    wddr_iocal_calibrate(wddr);
+    xLastWakeTime = xTaskGetTickCount();
 
-    // Submit event without blocking
-    ret = __phy_task_notify(&msg, 0);
-    configASSERT(ret != pdFALSE);
+    vInitCompletion(&fw_manager.event.phyUpd);
+
+    // Run forever; Perform calibration on schedule
+    for(;;)
+    {
+        // Wait for the next cycle
+        vTaskDelayUntil(&xLastWakeTime, DFI_PHYUPD_PERIOD);
+
+        // Perform calibration
+        wddr_iocal_calibrate(wddr);
+
+        // Reset Completion variable
+        vReInitCompletion(&fw_manager.event.phyUpd);
+
+        // Clear notifications
+        xTaskNotifyWait(0, 0, NULL, 0);
+
+        // Send message
+        fw_phy_task_notify(&msg);
+
+        // Wait for it to be handled
+        xTaskNotifyWait(0, 0, &resp, DFI_PHYUPD_PERIOD);
+
+        // Since there is a retry queue, should never have a retry
+        configASSERT((resp != FW_RESP_RETRY));
+
+        // Block on completion
+        vWaitForCompletion(&fw_manager.event.phyUpd);
+
+        // Update last tick that update was performed
+        // TODO: Here we can check if missed a deadline or something
+        xLastWakeTime = fw_manager.status.prev_phyupd_tick;
+    }
 }
 
 /*-----------------------------------------------------------*/
@@ -540,8 +590,7 @@ static void dfi_phyupd_timer_callback(TimerHandle_t xTimer)
 static void firmwarePeriodicCalTask(void *pvParameters)
 {
     TickType_t xLastWakeTime;
-    UBaseType_t resp;
-    const TickType_t xFrequency = PERIODIC_CAL_PERIOD;
+    uint32_t resp;
     const dfi_phymstr_req_t request = {
         .cs_state = DFI_MASTER_CS_STATE_ACTIVE,
         .state_sel = DFI_MASTER_STATE_SEL_REFRESH,
@@ -558,7 +607,7 @@ static void firmwarePeriodicCalTask(void *pvParameters)
     for(;;)
     {
         // Wait for the next cycle
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        vTaskDelayUntil(&xLastWakeTime, PERIODIC_CAL_PERIOD);
 
         // Try again later
         if (fw_manager.fsm.dfi.currentState != &dfiIdle)
@@ -567,7 +616,7 @@ static void firmwarePeriodicCalTask(void *pvParameters)
         }
 
         // Clear completion variable
-        vInitCompletion(&fw_manager.phyMstrEvent);
+        vInitCompletion(&fw_manager.event.phyMstr);
 
         // Request PHYMSTR control
         msg.event = FW_PHY_EVENT_PHYMSTR_REQ;
@@ -588,7 +637,7 @@ static void firmwarePeriodicCalTask(void *pvParameters)
         }
 
         // Block until in PHY MASTER or it was aborted
-        vWaitForCompletion(&fw_manager.phyMstrEvent);
+        vWaitForCompletion(&fw_manager.event.phyMstr);
 
         // Try again later
         if (fw_manager.fsm.dfi.currentState != &dfiPhyMstr)
@@ -703,6 +752,15 @@ static void dfi_phymstr_pending_entry_handler(__UNUSED__ void *stateData,
 }
 
 /*-----------------------------------------------------------*/
+static void dfi_phymstr_iocal(void *currentStateData,
+                             struct event *event,
+                             void *newStateData)
+{
+    // Update IOCAL in the PHY
+    perform_iocal_and_update();
+}
+
+/*-----------------------------------------------------------*/
 static void dfi_phymstr_abort(void *currentStateData,
                              struct event *event,
                              void *newStateData)
@@ -711,7 +769,7 @@ static void dfi_phymstr_abort(void *currentStateData,
     wddr_phymstr_exit(wddr);
 #if CONFIG_CAL_PERIODIC
     // Notify Periodic Calibration Task that event was aborted
-    vComplete(&fw_manager.phyMstrEvent);
+    vComplete(&fw_manager.event.phyMstr);
 #endif /* CONFIG_CAL_PERIODIC */
 }
 
@@ -719,7 +777,7 @@ static void dfi_phymstr_abort(void *currentStateData,
 static void dfi_phymstr_enter_handler(void *stateData, struct event *event)
 {
 #if CONFIG_CAL_PERIODIC
-    vComplete(&fw_manager.phyMstrEvent);
+    vComplete(&fw_manager.event.phyMstr);
 #endif /* CONFIG_CAL_PERIODIC */
 }
 
@@ -739,8 +797,7 @@ static void dfi_phymstr_exit_handler(void *stateData, struct event *event)
 static void dfi_ctrlupd_entry_handler(void *stateData, struct event *event)
 {
     // Perform IOCAL and update
-    wddr_iocal_calibrate(wddr);
-    wddr_iocal_update_phy(wddr);
+    perform_iocal_and_update();
 
     // Inform PHY that update is done
     wddr_ctrlupd_done(wddr);
@@ -764,7 +821,9 @@ static void dfi_phyupd_update(void *currentStateData,
                               void *newStateData)
 {
     wddr_iocal_update_phy(wddr);
+    fw_manager.status.prev_phyupd_tick = xTaskGetTickCount();
     wddr_phyupd_exit(wddr);
+    vComplete(&fw_manager.event.phyUpd);
 }
 
 /*-----------------------------------------------------------*/
@@ -774,6 +833,7 @@ static void dfi_phyupd_abort(void *currentStateData,
 {
     disable_irq(MCU_FAST_IRQ_PHYUPD_ACK);
     wddr_phyupd_exit(wddr);
+    vComplete(&fw_manager.event.phyUpd);
 }
 
 /*-----------------------------------------------------------*/
