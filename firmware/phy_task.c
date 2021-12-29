@@ -187,8 +187,9 @@ static struct state fswPrep = {
     .transitions = (struct transition[]) {
         {FW_PHY_EVENT_PREP, NULL, NULL, fsw_prepare_switch_handler, &fswPrep},
         {FW_PHY_EVENT_INIT_START, NULL, NULL, NULL, &fswPending},
+        {FW_PHY_EVENT_PLL_LOSS_LOCK, NULL, NULL, NULL, &errorState},
     },
-    .numTransitions = 2,
+    .numTransitions = 3,
     .data = NULL,
     .entryAction = NULL,
     .exitAction = NULL,
