@@ -235,13 +235,63 @@ wddr_return_t channel_rx_sa_dqbyte_configure(channel_dev_t *channel_dev,
     return WDDR_SUCCESS;
 }
 
+typedef struct cal_params
+{
+    uint8_t start;
+    uint8_t stop;
+    int8_t step;
+    uint8_t criteria;
+} cal_params_t;
+
+typedef struct dqbit_params
+{
+    uint8_t bit_index;
+    uint8_t sa_index;
+} dqbit_params_t;
+
+static wddr_return_t __sensamp_dqbyte_calibrate(dq_reg_t *dq_reg,
+                                                cal_params_t cal_params,
+                                                dqbit_params_t dqbit_params,
+                                                uint8_t *code)
+{
+    uint8_t val;
+    int8_t cal_code = cal_params.start;
+    do
+    {
+        dq_dq_sa_set_cal_code_reg_if(dq_reg, WDDR_MSR_0, WDDR_RANK_0, dqbit_params.bit_index, dqbit_params.sa_index, cal_code);
+        dq_dq_sa_get_status_reg_if(dq_reg, 0, 0, &val);
+
+        // val for first cal_code must be 1
+        if (cal_code == WAV_SA_MIN_CAL_CODE && val == 0)
+        {
+            return WDDR_ERROR;
+        }
+        // val for last cal code must be 0
+        else if (cal_code == WAV_SA_MAX_CAL_CODE && val == 1 )
+        {
+            return WDDR_ERROR;
+        }
+        else if (val == cal_params.criteria)
+        {
+            break;
+        }
+
+        cal_code += cal_params.step;
+
+    } while (cal_code <= cal_params.stop);
+
+    *code = cal_code;
+    return WDDR_SUCCESS;
+}
+
 static wddr_return_t __sensamp_dqbyte_configure(dq_reg_t *dq_reg,
                                                 bool calibrate,
                                                 sensamp_dqbit_cfg_t data[WDDR_PHY_DQ_SLICE_NUM])
 {
-    uint8_t val;
-    uint8_t code_down, code_up, code_avg, cal_code;
+    uint8_t code_down = 0, code_up = 0;
     uint8_t bit_index, sa_index;
+    cal_params_t cal_params;
+    dqbit_params_t dqbit_params;
 
     for (bit_index = 0; bit_index < WDDR_PHY_DQ_SLICE_NUM; bit_index++)
     {
@@ -251,54 +301,23 @@ static wddr_return_t __sensamp_dqbyte_configure(dq_reg_t *dq_reg,
             if (calibrate)
             {
                 dq_dq_sa_clear_cal_code_reg_if(dq_reg, WDDR_MSR_0, WDDR_RANK_0, bit_index);
-                for (cal_code = WAV_SA_MIN_CAL_CODE; cal_code <= WAV_SA_MAX_CAL_CODE; cal_code++)
-                {
-                    dq_dq_sa_set_cal_code_reg_if(dq_reg, WDDR_MSR_0, WDDR_RANK_0, bit_index, sa_index, cal_code);
-                    dq_dq_sa_get_status_reg_if(dq_reg, bit_index, sa_index, &val);
+                dqbit_params.sa_index = sa_index;
+                dqbit_params.bit_index = bit_index;
 
-                    // val for first cal_code must be 1
-                    if (cal_code == WAV_SA_MIN_CAL_CODE && val == 0 )
-                    {
-                        return WDDR_ERROR;
-                    }
-                    // val for last cal code must be 0
-                    else if (cal_code == WAV_SA_MAX_CAL_CODE && val == 1)
-                    {
-                        return WDDR_ERROR;
-                    }
-                    else if (val == 0)
-                    {
-                        break;
-                    }
-                }
-                code_up = cal_code;
+                cal_params.start = WAV_SA_MIN_CAL_CODE;
+                cal_params.stop = WAV_SA_MAX_CAL_CODE;
+                cal_params.criteria = 0;
+                cal_params.step = 1;
+                __sensamp_dqbyte_calibrate(dq_reg, cal_params, dqbit_params, &code_up);
 
-                cal_code = WAV_SA_MAX_CAL_CODE;
-                do
-                {
-                    dq_dq_sa_set_cal_code_reg_if(dq_reg, WDDR_MSR_0, WDDR_RANK_0, bit_index, sa_index, cal_code);
-                    dq_dq_sa_get_status_reg_if(dq_reg, bit_index, sa_index, &val);
+                cal_params.start = WAV_SA_MAX_CAL_CODE;
+                cal_params.stop = WAV_SA_MIN_CAL_CODE;
+                cal_params.criteria = 1;
+                cal_params.step = -1;
+                __sensamp_dqbyte_calibrate(dq_reg, cal_params, dqbit_params, &code_down);
 
-                    // val for first cal_code must be 1
-                    if (cal_code == WAV_SA_MIN_CAL_CODE && val == 0)
-                    {
-                        return WDDR_ERROR;
-                    }
-                    // val for last cal code must be 0
-                    else if (cal_code == WAV_SA_MAX_CAL_CODE && val == 1 )
-                    {
-                        return WDDR_ERROR;
-                    }
-                    else if (val == 1)
-                    {
-                        break;
-                    }
-                } while ((cal_code--) > WAV_SA_MIN_CAL_CODE);
-
-                code_down = cal_code;
-                code_avg = (code_down + code_up) / 2;
                 // save code into calibration table
-                data[bit_index].code[sa_index] = code_avg;
+                data[bit_index].code[sa_index] = (code_down + code_up) >> 1;
             } // if (calibrate)
 
             // Update value for RANK 0 and RANK 1; and both MSRs

@@ -80,8 +80,6 @@ packet_item_t * create_ck_packet_sequence(dfi_tx_packet_buffer_t *buffer,
 
     // Add to list
     vListInitialiseItem(&packet->list_item);
-    packet->packet.packet.time = time_offset;
-    listSET_LIST_ITEM_VALUE(&packet->list_item, time_offset);
     listSET_LIST_ITEM_OWNER(&packet->list_item, packet);
     vListInsertEnd(&buffer->list, &packet->list_item);
 

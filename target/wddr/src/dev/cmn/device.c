@@ -93,12 +93,8 @@ static wddr_return_t zqcal_calibrate_voh(cmn_dev_t *cmn_dev,
                            ZQCAL_NCAL_CODE_MAX,
                            &n_code);
 
-    if (n_code == ZQCAL_NCAL_CODE_MIN)
-    {
-        return WDDR_ERROR;
-    }
-
-    if (n_code == ZQCAL_NCAL_CODE_MAX)
+    if (n_code == ZQCAL_NCAL_CODE_MIN ||
+        n_code == ZQCAL_NCAL_CODE_MAX)
     {
         return WDDR_ERROR;
     }
@@ -108,12 +104,8 @@ static wddr_return_t zqcal_calibrate_voh(cmn_dev_t *cmn_dev,
                            ZQCAL_PCAL_CODE_MAX,
                            &p_code);
 
-    if (p_code == ZQCAL_PCAL_CODE_MIN)
-    {
-        return WDDR_ERROR;
-    }
-
-    if (p_code == ZQCAL_PCAL_CODE_MAX)
+    if (p_code == ZQCAL_PCAL_CODE_MIN ||
+        p_code == ZQCAL_PCAL_CODE_MAX)
     {
         return WDDR_ERROR;
     }

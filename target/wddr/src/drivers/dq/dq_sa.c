@@ -64,16 +64,8 @@ void dq_dq_sa_set_cal_code_reg_if(dq_reg_t *dq_reg,
     uint8_t cal_dir;
     uint32_t reg_val = dq_reg->DDR_DQ_DQ_RX_SA_CFG[msr][rank][bit];
 
-    if (code < WAV_SA_MID_CAL_CODE)
-    {
-        cal_dir = WAV_SA_CAL_DIR_NEG;
-        cal_code = WAV_SA_MID_CAL_CODE - (code + 1);
-    }
-    else
-    {
-        cal_dir = WAV_SA_CAL_DIR_POS;
-        cal_code = code - WAV_SA_MID_CAL_CODE;
-    }
+    cal_code = code & 0xF;
+    cal_dir = (code >> 4) & 0x1;
 
     switch (sa_index)
     {
@@ -93,8 +85,6 @@ void dq_dq_sa_set_cal_code_reg_if(dq_reg_t *dq_reg,
             reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_DQ_RX_SA_M0_R0_CFG_0_CAL_DIR_270, cal_dir);
             reg_val = UPDATE_REG_FIELD(reg_val, DDR_DQ_DQ_RX_SA_M0_R0_CFG_0_CAL_CODE_270, cal_code);
             break;
-        default:
-            return;
     }
 
     dq_reg->DDR_DQ_DQ_RX_SA_CFG[msr][rank][bit] = reg_val;
