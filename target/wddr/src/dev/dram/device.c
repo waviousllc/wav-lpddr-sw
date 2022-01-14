@@ -47,6 +47,15 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
                                                          command_t *command,
                                                          uint16_t time_offset);
 
+/** Internal data structure for storing Mode Register Write parameters */
+typedef struct mrw_param
+{
+    wddr_freq_ratio_t ratio;
+    chipselect_t cs;
+    uint8_t mode_register;
+    uint8_t op;
+} mrw_param_t;
+
 /**
  * @brief   DRAM Create MRW Packet Sequence
  *
@@ -54,10 +63,7 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
  *          the DRAM.
  *
  * @param[in]   buffer          pointer to packet buffer to save packet to.
- * @param[in]   ratio           ratio of DFI CK to DRAM CK.
- * @param[in]   cs              chipselect value.
- * @param[in]   mode_register   which mode reigster number.
- * @param[in]   op              mode register op data.
+ * @param[in]   mrw_params      mode register parameters.
  * @param[in]   time_offset     time offset from previous packet that the packet
  *                              should be sent.
  *
@@ -66,10 +72,7 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
  * @retval      WDDR_ERROR otherwise.
  */
 static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                                     wddr_freq_ratio_t ratio,
-                                                     chipselect_t cs,
-                                                     uint8_t mode_register,
-                                                     uint8_t op,
+                                                     mrw_param_t mrw_params,
                                                      uint16_t time_offset);
 
 void dram_init(dram_dev_t *dram,
@@ -130,8 +133,15 @@ void dram_cbt_enter(dram_dev_t *dram,
 
     dram->mr13 |= CBT__MSK;
 
+    mrw_param_t mrw_params = {
+        .cs = CS_0,
+        .mode_register = 0xD,
+        .op = dram->mr13,
+        .ratio = dram->cfg->ratio,
+    };
+
     dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, 15);
+    dram_create_mrw_packet_sequence(&packet_buffer, mrw_params, 15);
     create_cke_packet_sequence(&packet_buffer, 1);
     create_ck_packet_sequence(&packet_buffer, 15);
     dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
@@ -145,10 +155,17 @@ void dram_cbt_exit(dram_dev_t *dram,
 
     dram->mr13 &= ~CBT__MSK;
 
+    mrw_param_t mrw_params = {
+        .cs = CS_0,
+        .mode_register = 0xD,
+        .op = dram->mr13,
+        .ratio = dram->cfg->ratio,
+    };
+
     dfi_tx_packet_buffer_init(&packet_buffer);
     create_ck_packet_sequence(&packet_buffer, 15);
     create_cke_packet_sequence(&packet_buffer, 1);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, 0xD, dram->mr13, dram->cfg->t_vref_ca_long);
+    dram_create_mrw_packet_sequence(&packet_buffer, mrw_params, dram->cfg->t_vref_ca_long);
     create_cke_packet_sequence(&packet_buffer, 1);
     dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
@@ -517,17 +534,36 @@ void dram_prepare_mrw_update(dram_dev_t *dram,
 {
     create_cke_packet_sequence(packet_buffer, 1);
 
+    mrw_param_t mrw_params = {
+        .ratio = dram->cfg->ratio,
+    };
+
     for (uint8_t rank = CS_0; rank < WDDR_PHY_RANK; rank++)
     {
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x01, dram_cfg->mr1, 10);
+        mrw_params.cs = rank;
+        mrw_params.mode_register = 0x01;
+        mrw_params.op = dram_cfg->mr1;
+        dram_create_mrw_packet_sequence(packet_buffer, mrw_params, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x02, dram_cfg->mr2, 10);
+
+        mrw_params.mode_register = 0x02;
+        mrw_params.op = dram_cfg->mr2;
+        dram_create_mrw_packet_sequence(packet_buffer, mrw_params, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0B, dram_cfg->mr11, 10);
+
+        mrw_params.mode_register = 0x0B;
+        mrw_params.op = dram_cfg->mr11;
+        dram_create_mrw_packet_sequence(packet_buffer, mrw_params, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0C, dram_cfg->mr12, 10);
+
+        mrw_params.mode_register = 0xC;
+        mrw_params.op = dram_cfg->mr12;
+        dram_create_mrw_packet_sequence(packet_buffer, mrw_params, 10);
         create_cke_packet_sequence(packet_buffer, 1);
-        dram_create_mrw_packet_sequence(packet_buffer, dram->cfg->ratio, rank, 0x0E, dram_cfg->mr14, dram_cfg->t_vref_ca_long);
+
+        mrw_params.mode_register = 0x0E;
+        mrw_params.op = dram_cfg->mr14;
+        dram_create_mrw_packet_sequence(packet_buffer, mrw_params, dram_cfg->t_vref_ca_long);
         create_cke_packet_sequence(packet_buffer, 1);
     }
 }
@@ -539,23 +575,27 @@ static void dram_write_mode_register(dram_dev_t *dram,
 {
     dfi_tx_packet_buffer_t packet_buffer;
 
+    mrw_param_t mrw_params = {
+        .ratio = dram->cfg->ratio,
+        .cs = CS_0,
+        .mode_register = mr,
+        .op = op,
+    };
+
     dfi_tx_packet_buffer_init(&packet_buffer);
-    dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, mr, op, 1);
+    dram_create_mrw_packet_sequence(&packet_buffer, mrw_params, 1);
     create_cke_packet_sequence(&packet_buffer, 1);
     dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
 }
 
 static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buffer,
-                                                wddr_freq_ratio_t ratio,
-                                                chipselect_t cs,
-                                                uint8_t mode_register,
-                                                uint8_t op,
-                                                uint16_t time_offset)
+                                                     mrw_param_t mrw_params,
+                                                     uint16_t time_offset)
 {
     command_t command = {0};
-    create_write_mode_register_command(&command, cs, mode_register, op);
-    return dram_create_address_packet_sequence(buffer, ratio, &command, time_offset);
+    create_write_mode_register_command(&command, mrw_params.cs, mrw_params.mode_register, mrw_params.op);
+    return dram_create_address_packet_sequence(buffer, mrw_params.ratio, &command, time_offset);
 }
 
 static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t *buffer,
@@ -563,12 +603,10 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
                                                     command_t *command,
                                                     uint16_t time_offset)
 {
-    uint8_t phase_offset = 0;
-    uint8_t num_packets = (MAX_COMMAND_FRAMES >> ratio);
-    // Five packets required for this command
     packet_item_t *packet;
+    command_frame_t *address = command->address;
 
-    for (uint8_t i = 0; i < num_packets; i++)
+    do
     {
         packet = create_cke_packet_sequence(buffer, time_offset);
         if (packet == NULL)
@@ -577,21 +615,21 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
         }
 
         // Command
-        packet->packet.packet.cs_p0 = command->address[phase_offset].cs;
-        packet->packet.packet.cs_p1 = command->address[phase_offset].cs;
-        packet->packet.packet.address_p0 = command->address[phase_offset].ca_pins;
-        phase_offset++;
+        packet->packet.packet.cs_p0 = address->cs;
+        packet->packet.packet.cs_p1 = address->cs;
+        packet->packet.packet.address_p0 = address->ca_pins;
+        address++;
 
         if (ratio == WDDR_FREQ_RATIO_1TO2)
         {
-            packet->packet.packet.cs_p2 = command->address[phase_offset].cs;
-            packet->packet.packet.cs_p3 = command->address[phase_offset].cs;
-            packet->packet.packet.address_p2 = command->address[phase_offset].ca_pins;
-            phase_offset++;
+            packet->packet.packet.cs_p2 = address->cs;
+            packet->packet.packet.cs_p3 = address->cs;
+            packet->packet.packet.address_p2 = address->ca_pins;
+            address++;
         }
 
         time_offset = 1;
-    }
+    } while(address <= &command->address[MAX_COMMAND_FRAMES]);
 
     return WDDR_SUCCESS;
 }
