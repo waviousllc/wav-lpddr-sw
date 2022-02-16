@@ -116,6 +116,24 @@ typedef struct command_t
 } command_t;
 
 /**
+ * @brief   DRAM Address Structure
+ *
+ * @details DRAM Write and Read Command Address Structure
+ *
+ * bl       Burst Length Value
+ * ap       Auto-precharge
+ * ba       Bank Address
+ * ca       Column Address
+ */
+typedef struct dram_addr_t
+{
+    uint8_t     bl;
+    uint8_t     ap;
+    uint8_t     ba;
+    uint8_t     ca;
+} dram_addr_t;
+
+/**
  * @brief   Create Write Command
  *
  * @details Creates a Write Command
@@ -137,6 +155,13 @@ void create_write_command(command_t *command,
                           uint8_t bank_address,
                           uint8_t column_address,
                           uint8_t ap);
+
+void create_read_command(command_t *command,
+                         burst_length_t bl,
+                         chipselect_t cs,
+                         uint8_t bank_address,
+                         uint8_t column_address,
+                         uint8_t ap);
 
 /**
  * @brief   Create MRR Command

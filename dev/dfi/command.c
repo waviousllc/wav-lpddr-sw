@@ -10,6 +10,7 @@
 #define CS_HIGH         (1)
 
 #define WR_1_CA_PINS        (0b000100)
+#define RD_1_CA_PINS        (0b000010)
 #define MPC_1_CA_PINS       (0b100000)
 #define WRFIFO_2_CA_PINS    (0b000111)
 #define RDFIFO_2_CA_PINS    (0b000001)
@@ -134,7 +135,25 @@ static void create_write_frame(command_frame_t frame[MAX_COMMAND_FRAMES],
     bl = bl == BL_32 ? 1 : 0;
     // Update CA Pins for this command
     frame[0].ca_pins = WR_1_CA_PINS | bl << 5;
-    frame[1].ca_pins = (0x3 & bank_address) | ((column_address & 0x80) >> 3) | (ap << 5); //  BA2:0 | V | C9 | AP
+    frame[1].ca_pins = (0x7 & bank_address) | ((column_address & 0x80) >> 3) | (ap << 5); //  BA2:0 | V | C9 | AP
+    frame[2].ca_pins = CAS_2_CA_PINS | (column_address & 0x40) >> 1;  // C8
+    frame[3].ca_pins = column_address & 0x3F;  // C[7:2]
+
+    // Chipselect
+    set_command_chipselect(frame, cs);
+}
+
+static void create_read_frame(command_frame_t frame[MAX_COMMAND_FRAMES],
+                              chipselect_t cs,
+                              uint8_t bank_address,
+                              uint8_t column_address,
+                              uint8_t ap,
+                              uint8_t bl)
+{
+    bl = bl == BL_32 ? 1 : 0;
+    // Update CA Pins for this command
+    frame[0].ca_pins = RD_1_CA_PINS | bl << 5;
+    frame[1].ca_pins = (0x7 & bank_address) | ((column_address & 0x80) >> 3) | (ap << 5); //  BA2:0 | V | C9 | AP
     frame[2].ca_pins = CAS_2_CA_PINS | (column_address & 0x40) >> 1;  // C8
     frame[3].ca_pins = column_address & 0x3F;  // C[7:2]
 
@@ -167,6 +186,17 @@ void create_write_command(command_t *command,
     command->command_type = COMMAND_TYPE_WRITE;
     create_write_frame(command->address, cs, bank_address, column_address, ap, bl);
     command->data = data;
+}
+
+void create_read_command(command_t *command,
+                         burst_length_t bl,
+                         chipselect_t cs,
+                         uint8_t bank_address,
+                         uint8_t column_address,
+                         uint8_t ap)
+{
+    command->command_type = COMMAND_TYPE_READ;
+    create_read_frame(command->address, cs, bank_address, column_address, ap, bl);
 }
 
 void create_write_mode_register_command(command_t *command,

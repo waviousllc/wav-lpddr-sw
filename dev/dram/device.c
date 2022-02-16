@@ -22,12 +22,6 @@
 #define WRLVL__SHFT     (7)
 #define WRLVL__MSK      (1 << WRLVL__SHFT)
 
-/** @brief  Internal Function for updating DRAM Mode Register */
-static void dram_write_mode_register(dram_dev_t *dram,
-                                     dfi_dev_t *dfi,
-                                     uint8_t mr,
-                                     uint8_t op);
-
 /**
  * @brief   DRAM Create Address Packet Sequence
  *
@@ -70,6 +64,14 @@ static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buf
                                                      chipselect_t cs,
                                                      uint8_t mode_register,
                                                      uint8_t op,
+                                                     uint16_t time_offset);
+
+static wddr_return_t dram_create_mrr_packet_sequence(dram_dev_t *dram,
+                                                     dfi_tx_packet_buffer_t *buffer,
+                                                     burst_length_t burst_length,
+                                                     wddr_freq_ratio_t ratio,
+                                                     chipselect_t cs,
+                                                     uint8_t mode_register,
                                                      uint16_t time_offset);
 
 void dram_init(dram_dev_t *dram,
@@ -342,17 +344,17 @@ wddr_return_t dram_prepare_cbt_sequence(dram_dev_t *dram,
     return WDDR_SUCCESS;
 }
 
-wddr_return_t dram_prepare_wrfifo_sequence(dram_dev_t *dram,
+static wddr_return_t dram_prepare_write_sequence(dram_dev_t *dram,
                                            dfi_tx_packet_buffer_t *buffer,
                                            burst_length_t burst_length,
                                            chipselect_t cs,
                                            uint16_t wrdata_en_offset,
-                                           command_data_t *data)
+                                           command_data_t *data,
+                                           command_t *command)
 {
     uint16_t initial_dram_offset = 0;
     uint8_t time_offset = 1;
     packet_item_t *packet;
-    command_t command = {0};
     packet_group_info_t wrdata_en_info, wrdata_info;
 
     // Calculate timestamp of first CA packet (time 0).
@@ -369,9 +371,8 @@ wddr_return_t dram_prepare_wrfifo_sequence(dram_dev_t *dram,
     create_packet_group_info(&wrdata_en_info, dram->cfg->ratio, wrdata_en_dram_clk, burst_length + 4);
     create_packet_group_info(&wrdata_info, dram->cfg->ratio, wrdata_dram_clk, burst_length);
 
-    // Create WRFIFO command sequence.
-    create_wrfifo_command(&command, data, cs);
-    dram_create_address_packet_sequence(buffer, dram->cfg->ratio, &command, time_offset);
+    // Create address packet sequence.
+    dram_create_address_packet_sequence(buffer, dram->cfg->ratio, command, time_offset);
 
     time_offset = wrdata_en_info.dfi_ts_start - buffer->ts_last_packet;
 
@@ -406,6 +407,35 @@ wddr_return_t dram_prepare_wrfifo_sequence(dram_dev_t *dram,
     create_cke_packet_sequence(buffer, 1);
 
     return WDDR_SUCCESS;
+}
+
+wddr_return_t dram_prepare_write_data_sequence(dram_dev_t *dram,
+                                               dfi_tx_packet_buffer_t *buffer,
+                                               burst_length_t burst_length,
+                                               chipselect_t cs,
+                                               uint8_t bank_address,
+                                               uint8_t column_address,
+                                               uint8_t ap,
+                                               uint16_t wrdata_en_offset,
+                                               command_data_t *data)
+{
+    command_t command = {0};
+    // Create WRFIFO command sequence.
+    create_write_command(&command, data, burst_length, cs, bank_address, column_address, ap);
+    return dram_prepare_write_sequence(dram, buffer, burst_length, cs, wrdata_en_offset, data, &command);;
+}
+
+wddr_return_t dram_prepare_wrfifo_sequence(dram_dev_t *dram,
+                                           dfi_tx_packet_buffer_t *buffer,
+                                           burst_length_t burst_length,
+                                           chipselect_t cs,
+                                           uint16_t wrdata_en_offset,
+                                           command_data_t *data)
+{
+    command_t command = {0};
+    // Create WRFIFO command sequence.
+    create_wrfifo_command(&command, data, cs);
+    return dram_prepare_write_sequence(dram, buffer, burst_length, cs, wrdata_en_offset, data, &command);;
 }
 
 static wddr_return_t dram_prepare_read_sequence(dram_dev_t *dram,
@@ -459,6 +489,20 @@ static wddr_return_t dram_prepare_read_sequence(dram_dev_t *dram,
     create_cke_packet_sequence(buffer, 1);
 
     return WDDR_SUCCESS;
+}
+
+wddr_return_t dram_prepare_read_data_sequence(dram_dev_t *dram,
+                                              dfi_tx_packet_buffer_t *buffer,
+                                              burst_length_t burst_length,
+                                              chipselect_t cs,
+                                              uint16_t rddata_en_offset,
+                                              uint8_t bank_address,
+                                              uint8_t column_address,
+                                              uint8_t ap)
+{
+    command_t command = {0};
+    create_read_command(&command, burst_length, cs, bank_address, column_address, ap);
+    return dram_prepare_read_sequence(dram, buffer, burst_length, cs, rddata_en_offset, &command);
 }
 
 wddr_return_t dram_prepare_rddq_sequence(dram_dev_t *dram,
@@ -532,7 +576,7 @@ void dram_prepare_mrw_update(dram_dev_t *dram,
     }
 }
 
-static void dram_write_mode_register(dram_dev_t *dram,
+void dram_write_mode_register(dram_dev_t *dram,
                                      dfi_dev_t *dfi,
                                      uint8_t mr,
                                      uint8_t op)
@@ -541,6 +585,20 @@ static void dram_write_mode_register(dram_dev_t *dram,
 
     dfi_tx_packet_buffer_init(&packet_buffer);
     dram_create_mrw_packet_sequence(&packet_buffer, dram->cfg->ratio, CS_0, mr, op, 1);
+    create_cke_packet_sequence(&packet_buffer, 1);
+    dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
+    dfi_tx_packet_buffer_free(&packet_buffer);
+}
+
+void dram_read_mode_register(dram_dev_t *dram,
+                             dfi_dev_t *dfi,
+                             burst_length_t burst_length,
+                             uint8_t mr)
+{
+    dfi_tx_packet_buffer_t packet_buffer;
+
+    dfi_tx_packet_buffer_init(&packet_buffer);
+    dram_create_mrr_packet_sequence(dram, &packet_buffer, burst_length, dram->cfg->ratio, CS_0, mr, 1);
     create_cke_packet_sequence(&packet_buffer, 1);
     dfi_buffer_fill_and_send_packets(dfi, &packet_buffer.list);
     dfi_tx_packet_buffer_free(&packet_buffer);
@@ -557,6 +615,20 @@ static wddr_return_t dram_create_mrw_packet_sequence(dfi_tx_packet_buffer_t *buf
     create_write_mode_register_command(&command, cs, mode_register, op);
     return dram_create_address_packet_sequence(buffer, ratio, &command, time_offset);
 }
+
+static wddr_return_t dram_create_mrr_packet_sequence(dram_dev_t *dram,
+                                                     dfi_tx_packet_buffer_t *buffer,
+                                                     burst_length_t burst_length,
+                                                     wddr_freq_ratio_t ratio,
+                                                     chipselect_t cs,
+                                                     uint8_t mode_register,
+                                                     uint16_t time_offset)
+{
+    command_t command = {0};
+    create_read_mode_register_command(&command, cs, mode_register);
+    return dram_prepare_read_sequence(dram, buffer, burst_length, cs, 0, &command);
+}
+
 
 static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t *buffer,
                                                     wddr_freq_ratio_t ratio,
@@ -594,4 +666,23 @@ static wddr_return_t dram_create_address_packet_sequence(dfi_tx_packet_buffer_t 
     }
 
     return WDDR_SUCCESS;
+}
+
+
+
+void dram_write(dram_dev_t *dram,
+                dfi_dev_t *dfi,
+                uint8_t bank_address,
+                uint8_t column_address,
+                uint8_t *data)
+{
+
+}
+
+void dram_read(dram_dev_t *dram,
+               dfi_dev_t *dfi,
+               uint8_t bank_address,
+               uint8_t column_address)
+{
+
 }

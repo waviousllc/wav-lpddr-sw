@@ -468,4 +468,36 @@ void dram_prepare_mrw_update(dram_dev_t *dram,
                              dfi_tx_packet_buffer_t *packet_buffer,
                              dram_freq_cfg_t *dram_cfg);
 
+wddr_return_t dram_prepare_write_data_sequence(dram_dev_t *dram,
+                                               dfi_tx_packet_buffer_t *buffer,
+                                               burst_length_t burst_length,
+                                               chipselect_t cs,
+                                               uint8_t bank_address,
+                                               uint8_t column_address,
+                                               uint8_t ap,
+                                               uint16_t wrdata_en_offset,
+                                               command_data_t *data);
+
+/** @brief  Internal Function for updating DRAM Mode Register */
+void dram_write_mode_register(dram_dev_t *dram,
+                                     dfi_dev_t *dfi,
+                                     uint8_t mr,
+                                     uint8_t op);
+
+void dram_read_mode_register(dram_dev_t *dram,
+                             dfi_dev_t *dfi,
+                             burst_length_t burst_length,
+                             uint8_t mr);
+
+void dram_write(dram_dev_t *dram,
+                dfi_dev_t *dfi,
+                uint8_t bank_address,
+                uint8_t column_address,
+                uint8_t *data);
+
+void dram_read(dram_dev_t *dram,
+               dfi_dev_t *dfi,
+               uint8_t bank_address,
+               uint8_t column_address);
+ 
 #endif /* _DRAM_DEV_H_ */
